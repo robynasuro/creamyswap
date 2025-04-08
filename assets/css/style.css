@@ -315,6 +315,20 @@ body:not(.dark) .wallet-popup-content {
   height: 30px;
   margin-right: 10px;
 
+#connect-wallet-modal {
+  display: none;
+  position: fixed; /* Biar tetap di tengah meski scroll */
+  top: 50%;
+ =left: 50%;
+  transform: translate(-50%, -50%); /* Pusatkan horizontal & vertikal */
+  background: #fff;
+  padding: 20px;
+  border-radius: 10px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+  z-index: 1000; /* Pastiin di atas elemen lain */
+  width: 300px; /* Atur lebar sesuai kebutuhan */
+}
+
 /* === Footer === */
 .footer {
   padding: 15px;
