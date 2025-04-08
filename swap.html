@@ -1,137 +1,35 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>CreamySwap - Swap</title>
-  <link rel="stylesheet" href="assets/css/style.css" />
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CreamySwap</title>
+    <link rel="stylesheet" href="assets/css/style.css">
 </head>
 <body>
-  <header class="navbar">
-    <div class="nav-left">
-      <img src="assets/img/creamy-logo.png" alt="CreamySwap" class="logo" />
-      <a href="index.html" class="brand-text">CreamySwap</a>
-    </div>
-    <div class="nav-right">
-      <button id="themeToggle">🌙</button>
-      <button id="connectWalletBtn">Connect Wallet</button>
-    </div>
-  </header>
-
-  <main class="swap-container">
-    <div class="swap-box">
-      <h2>Swap</h2>
-
-      <div class="token-select">
-        <label>From</label>
-        <div class="input-group">
-          <input type="text" placeholder="0.0" />
-          <div class="dropdown">
-            <button class="dropbtn" id="fromTokenBtn">TEA ▼</button>
-            <div class="dropdown-content" id="fromTokenDropdown">
-              <a href="#">TEA</a>
-              <a href="#">USDT</a>
-              <a href="#">CREAMY</a>
-            </div>
-          </div>
+    <div class="container">
+        <h1>CreamySwap</h1>
+        <div class="swap-box">
+            <input type="number" id="amount" placeholder="Amount to swap">
+            <button id="connect-wallet-btn" onclick="connectWallet()">Connect Wallet</button>
+            <button id="swap-btn">Swap</button>
         </div>
-      </div>
-      
-      <div class="token-select">
-        <label>To</label>
-        <div class="input-group">
-          <input type="text" placeholder="0.0" />
-          <div class="dropdown">
-            <button class="dropbtn" id="toTokenBtn">SELECT ▼</button>
-            <div class="dropdown-content" id="toTokenDropdown">
-              <a href="#">TEA</a>
-              <a href="#">USDT</a>
-              <a href="#">CREAMY</a>
-            </div>
-          </div>
+    </div>
+
+    <div id="connect-wallet-modal">
+        <h2>Connect Wallet</h2>
+        <div class="wallet-option" onclick="connectMetamask()">
+            <img src="https://upload.wikimedia.org/wikipedia/commons/3/36/MetaMask_Fox.svg" alt="Metamask"> Metamask
         </div>
-      </div>
-      
-      <button class="swap-btn">Swap</button>
-
-      <div class="swap-info">
-        <p>Slippage Tolerance: 0.5%</p>
-        <p>Price Impact: ~</p>
-        <p>Estimated Gas: ~</p>
-      </div>
+        <div class="wallet-option" onclick="connectTrustWallet()">
+            <img src="https://trustwallet.com/assets/images/favicon.png" alt="Trust Wallet"> Trust Wallet
+        </div>
+        <div class="wallet-option" onclick="connectWalletConnect()">
+            <img src="https://walletconnect.com/favicon.ico" alt="WalletConnect"> WalletConnect
+        </div>
     </div>
-  </main>
+    <div id="overlay" onclick="closeModal()"></div>
 
-  <!-- Wallet Modal -->
-  <div id="walletPopup" class="wallet-popup" style="display:none;">
-    <div class="wallet-popup-content">
-      <span id="closeWalletPopup" class="wallet-popup-close">&times;</span>
-      <h2>Select Wallet</h2>
-      <div class="wallet-buttons">
-        <button class="wallet-option" data-type="metamask">
-          <img src="assets/img/metamask.png" alt="MetaMask" /> MetaMask
-        </button>
-        <button class="wallet-option" data-type="walletconnect">
-          <img src="assets/img/walletconnect.png" alt="WalletConnect" /> WalletConnect
-        </button>
-        <button class="wallet-option" data-type="okx">
-          <img src="assets/img/okx.png" alt="OKX" /> OKX Wallet
-        </button>
-      </div>
-    </div>
-  </div>
-
-  <footer class="footer">
-    <p>&copy; 2025 CreamySwap. All rights reserved.</p>
-  </footer>
-
-  <script src="assets/js/connect.js"></script>
-  <script>
-    // Dropdown toggle
-    document.querySelectorAll('.dropbtn').forEach(btn => {
-      btn.addEventListener('click', function (e) {
-        e.stopPropagation();
-        const dropdown = this.nextElementSibling;
-        dropdown.classList.toggle('show');
-      });
-    });
-
-    // Close dropdown when clicking outside
-    window.onclick = function (e) {
-      document.querySelectorAll('.dropdown-content').forEach(el => el.classList.remove('show'));
-    };
-
-    // Theme Handling
-    function setTheme(mode) {
-      if (mode === 'dark') {
-        document.body.classList.add('dark');
-        document.getElementById('themeToggle').textContent = '☀️';
-      } else {
-        document.body.classList.remove('dark');
-        document.getElementById('themeToggle').textContent = '🌙';
-      }
-      localStorage.setItem('theme', mode);
-    }
-
-    function toggleTheme() {
-      const isDark = document.body.classList.contains('dark');
-      setTheme(isDark ? 'light' : 'dark');
-    }
-
-    // Load theme on page load
-    window.addEventListener('DOMContentLoaded', () => {
-      const savedTheme = localStorage.getItem('theme');
-      if (savedTheme) {
-        setTheme(savedTheme);
-      } else {
-        const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-        setTheme(prefersDark ? 'dark' : 'light');
-      }
-
-      // Bind theme toggle button
-      const themeToggleBtn = document.getElementById('themeToggle');
-      themeToggleBtn.addEventListener('click', toggleTheme);
-    });
-  </script>
+    <script src="assets/js/connect.js"></script>
 </body>
 </html>
