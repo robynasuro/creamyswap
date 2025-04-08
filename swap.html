@@ -7,87 +7,144 @@
     <link rel="stylesheet" href="assets/css/style.css">
 </head>
 <body class="dark-mode">
+    <!-- Navbar -->
     <nav class="navbar">
         <a href="index.html" class="logo">
-            <img src="assets/img/creamy-logo.png" alt="CreamySwap Logo" class="logo-img"> CreamySwap
+            <img src="assets/img/creamy-logo.png" alt="CreamySwap Logo" class="logo-img">
+            CreamySwap
         </a>
         <div class="nav-right">
             <label class="switch">
-                <input type="checkbox" id="theme-toggle" onchange="toggleTheme()">
+                <input type="checkbox" id="theme-toggle">
                 <span class="slider"></span>
             </label>
-            <button id="connect-wallet-btn" onclick="connectWallet()">Connect Wallet</button>
+            <button id="connect-wallet-btn">Connect Wallet</button>
         </div>
     </nav>
 
+    <!-- Main Content -->
     <div class="container">
         <div class="swap-box">
             <div class="swap-header">
                 <span>Swap</span>
-                <button class="settings-btn" onclick="toggleSlippagePopup()">⚙️</button>
-                <div id="slippage-popup" class="slippage-popup">
+                <button class="settings-btn">⚙️</button>
+                <div class="slippage-popup" id="slippage-popup">
                     <h3>Settings</h3>
                     <label>Slippage Tolerance</label>
                     <div class="slippage-options">
-                        <button class="slippage-btn" data-slippage="0.1" onclick="setSlippage(0.1)">0.1%</button>
-                        <button class="slippage-btn" data-slippage="0.5" onclick="setSlippage(0.5)">0.5%</button>
-                        <button class="slippage-btn" data-slippage="1" onclick="setSlippage(1)">1%</button>
+                        <button class="slippage-btn" data-slippage="0.1">0.1%</button>
+                        <button class="slippage-btn active" data-slippage="0.5">0.5%</button>
+                        <button class="slippage-btn" data-slippage="1">1%</button>
                     </div>
                     <div class="slippage-custom">
-                        <input type="number" id="slippage-custom" placeholder="Custom %">
+                        <input type="number" placeholder="Custom %" step="0.1">
                     </div>
                 </div>
             </div>
+
+            <!-- Input Token From -->
             <div class="swap-input-box">
-                <label>You Pay</label>
+                <label>From</label>
                 <div class="input-wrapper">
-                    <input type="number" id="amount-in" placeholder="0.0">
-                    <select id="token-in" class="token-select">
-                        <option value="ETH">ETH</option>
-                        <option value="CREAM">CREAM</option>
-                        <option value="USDT">USDT</option>
-                    </select>
+                    <input type="number" placeholder="0.0" id="from-amount">
+                    <button class="token-select-btn" id="from-token-btn">
+                        <img src="assets/img/tea.png" alt="TEA" class="token-img"> TEA
+                    </button>
                 </div>
             </div>
-            <button class="swap-arrow" onclick="switchTokens()">↓</button>
+
+            <!-- Swap Arrow -->
+            <button class="swap-arrow">↓</button>
+
+            <!-- Input Token To -->
             <div class="swap-input-box">
-                <label>You Receive</label>
+                <label>To</label>
                 <div class="input-wrapper">
-                    <input type="number" id="amount-out" placeholder="0.0" readonly>
-                    <select id="token-out" class="token-select">
-                        <option value="CREAM">CREAM</option>
-                        <option value="ETH">ETH</option>
-                        <option value="USDT">USDT</option>
-                    </select>
+                    <input type="number" placeholder="0.0" id="to-amount">
+                    <button class="token-select-btn" id="to-token-btn">
+                        <img src="assets/img/eth.png" alt="ETH" class="token-img"> ETH
+                    </button>
                 </div>
             </div>
-            <button id="swap-btn" onclick="performSwap()">Swap</button>
-            <div id="swap-info" class="swap-info">
-                <p>Exchange Rate: <span id="rate-info"></span></p>
-                <p>Price Impact: <span id="price-impact">0%</span></p>
-                <p>Minimum Received: <span id="min-received">0</span></p>
+
+            <!-- Swap Info -->
+            <div class="swap-info">
+                <button class="swap-info-toggle">
+                    <span id="estimated-output">~0.0001 ETH</span>
+                    <div class="gas-fee">
+                        <img src="assets/img/gas.png" alt="Gas Fee" class="gas-icon">
+                        <span id="gas-fee-value">$2.23</span>
+                    </div>
+                    <span class="chevron">▼</span>
+                </button>
+                <div class="swap-info-details" id="swap-info-details">
+                    <div class="swap-info-item">
+                        <span>CreamySwap Fee (0.25%)</span>
+                        <span>$3.65</span>
+                    </div>
+                    <div class="swap-info-item">
+                        <span>Network Cost</span>
+                        <span id="network-cost">$2.23</span>
+                    </div>
+                    <div class="swap-info-item">
+                        <span>Order Routing</span>
+                        <span>CreamySwap API</span>
+                    </div>
+                    <div class="swap-info-item">
+                        <span>Price Impact</span>
+                        <span>-0.05%</span>
+                    </div>
+                    <div class="swap-info-item">
+                        <span>Max Slippage</span>
+                        <span id="max-slippage">Auto 0.50%</span>
+                    </div>
+                </div>
             </div>
+
+            <!-- Swap Button -->
+            <button id="swap-btn">Swap</button>
         </div>
     </div>
 
+    <!-- Token Selection Popup -->
+    <div id="overlay"></div>
+    <div id="token-select-modal" class="token-select-modal">
+        <h2>Select a Token</h2>
+        <div class="token-option" data-token="TEA">
+            <img src="assets/img/tea.png" alt="TEA"> TEA
+        </div>
+        <div class="token-option" data-token="ETH">
+            <img src="assets/img/eth.png" alt="ETH"> ETH
+        </div>
+        <div class="token-option" data-token="USDT">
+            <img src="assets/img/usdt.png" alt="USDT"> USDT
+        </div>
+        <div class="token-option" data-token="BNB">
+            <img src="assets/img/bnb.png" alt="BNB"> BNB
+        </div>
+    </div>
+
+    <!-- Connect Wallet Popup -->
     <div id="connect-wallet-modal">
         <h2>Connect Wallet</h2>
-        <div class="wallet-option" onclick="connectMetamask()">
-            <img src="https://upload.wikimedia.org/wikipedia/commons/3/36/MetaMask_Fox.svg" alt="Metamask"> Metamask
+        <div class="wallet-option" data-wallet="metamask">
+            <img src="assets/img/metamask.png" alt="Metamask"> Metamask
         </div>
-        <div class="wallet-option" onclick="connectOKXWallet()">
+        <div class="wallet-option" data-wallet="walletconnect">
+            <img src="assets/img/walletconnect.png" alt="WalletConnect"> WalletConnect
+        </div>
+        <div class="wallet-option" data-wallet="okx">
             <img src="assets/img/okx.png" alt="OKX Wallet"> OKX Wallet
         </div>
-        <div class="wallet-option" onclick="connectWalletConnect()">
-            <img src="https://walletconnect.com/favicon.ico" alt="WalletConnect"> WalletConnect
-        </div>
     </div>
-    <div id="overlay" onclick="closeModal()"></div>
 
+    <!-- Footer -->
     <footer class="footer">
-        © 2025 CreamySwap. All rights reserved.
+        <p>© 2025 CreamySwap. All rights reserved.</p>
     </footer>
 
+    <!-- Web3.js untuk integrasi jaringan -->
+    <script src="https://cdn.jsdelivr.net/npm/web3@1.7.3/dist/web3.min.js"></script>
     <script src="assets/js/connect.js"></script>
 </body>
 </html>
