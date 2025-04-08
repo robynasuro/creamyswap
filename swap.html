@@ -6,13 +6,67 @@
     <title>CreamySwap</title>
     <link rel="stylesheet" href="assets/css/style.css">
 </head>
-<body>
-    <div class="container">
-        <h1>CreamySwap</h1>
-        <div class="swap-box">
-            <input type="number" id="amount" placeholder="Amount to swap">
+<body class="dark-mode">
+    <nav class="navbar">
+        <a href="index.html" class="logo">
+            <img src="assets/img/creamy-logo.png" alt="CreamySwap Logo" class="logo-img"> CreamySwap
+        </a>
+        <div class="nav-right">
+            <label class="switch">
+                <input type="checkbox" id="theme-toggle" onchange="toggleTheme()">
+                <span class="slider"></span>
+            </label>
             <button id="connect-wallet-btn" onclick="connectWallet()">Connect Wallet</button>
-            <button id="swap-btn">Swap</button>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="swap-box">
+            <div class="swap-header">
+                <span>Swap</span>
+                <button class="settings-btn" onclick="toggleSlippagePopup()">⚙️</button>
+                <div id="slippage-popup" class="slippage-popup">
+                    <h3>Settings</h3>
+                    <label>Slippage Tolerance</label>
+                    <div class="slippage-options">
+                        <button class="slippage-btn" data-slippage="0.1" onclick="setSlippage(0.1)">0.1%</button>
+                        <button class="slippage-btn" data-slippage="0.5" onclick="setSlippage(0.5)">0.5%</button>
+                        <button class="slippage-btn" data-slippage="1" onclick="setSlippage(1)">1%</button>
+                    </div>
+                    <div class="slippage-custom">
+                        <input type="number" id="slippage-custom" placeholder="Custom %">
+                    </div>
+                </div>
+            </div>
+            <div class="swap-input-box">
+                <label>You Pay</label>
+                <div class="input-wrapper">
+                    <input type="number" id="amount-in" placeholder="0.0">
+                    <select id="token-in" class="token-select">
+                        <option value="ETH">ETH</option>
+                        <option value="CREAM">CREAM</option>
+                        <option value="USDT">USDT</option>
+                    </select>
+                </div>
+            </div>
+            <button class="swap-arrow" onclick="switchTokens()">↓</button>
+            <div class="swap-input-box">
+                <label>You Receive</label>
+                <div class="input-wrapper">
+                    <input type="number" id="amount-out" placeholder="0.0" readonly>
+                    <select id="token-out" class="token-select">
+                        <option value="CREAM">CREAM</option>
+                        <option value="ETH">ETH</option>
+                        <option value="USDT">USDT</option>
+                    </select>
+                </div>
+            </div>
+            <button id="swap-btn" onclick="performSwap()">Swap</button>
+            <div id="swap-info" class="swap-info">
+                <p>Exchange Rate: <span id="rate-info"></span></p>
+                <p>Price Impact: <span id="price-impact">0%</span></p>
+                <p>Minimum Received: <span id="min-received">0</span></p>
+            </div>
         </div>
     </div>
 
@@ -21,14 +75,18 @@
         <div class="wallet-option" onclick="connectMetamask()">
             <img src="https://upload.wikimedia.org/wikipedia/commons/3/36/MetaMask_Fox.svg" alt="Metamask"> Metamask
         </div>
-        <div class="wallet-option" onclick="connectTrustWallet()">
-            <img src="https://trustwallet.com/assets/images/favicon.png" alt="Trust Wallet"> Trust Wallet
+        <div class="wallet-option" onclick="connectOKXWallet()">
+            <img src="assets/img/okx.png" alt="OKX Wallet"> OKX Wallet
         </div>
         <div class="wallet-option" onclick="connectWalletConnect()">
             <img src="https://walletconnect.com/favicon.ico" alt="WalletConnect"> WalletConnect
         </div>
     </div>
     <div id="overlay" onclick="closeModal()"></div>
+
+    <footer class="footer">
+        © 2025 CreamySwap. All rights reserved.
+    </footer>
 
     <script src="assets/js/connect.js"></script>
 </body>
