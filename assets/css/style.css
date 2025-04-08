@@ -56,4 +56,59 @@ button:hover {
 }
 
 #connect-wallet-btn:hover {
-    background: #3db8b0
+    background: #3db8b0;
+}
+
+/* Popup Styles */
+#connect-wallet-modal {
+    display: none;
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: #fff;
+    padding: 20px;
+    border-radius: 10px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    z-index: 1001; /* Pastiin di atas overlay */
+    width: 280px; /* Lebar konsisten */
+    text-align: left;
+}
+
+#overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.6); /* Overlay lebih gelap */
+    z-index: 1000;
+}
+
+.wallet-option {
+    display: flex;
+    align-items: center;
+    padding: 10px;
+    margin: 8px 0;
+    background: #f9f9f9;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.wallet-option:hover {
+    background: #e9e9e9;
+}
+
+.wallet-option img {
+    width: 24px; /* Ukuran logo dikecilin biar rapi */
+    height: 24px;
+    margin-right: 12px;
+}
+
+#connect-wallet-modal h2 {
+    margin: 0 0 15px 0;
+    font-size: 18px;
+    color: #333;
+}
