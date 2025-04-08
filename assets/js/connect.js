@@ -1,140 +1,138 @@
-function connectWallet() {
-  const modal = document.getElementById("connect-wallet-modal");
-  const overlay = document.getElementById("overlay");
-  if (modal.style.display === "block") {
-      modal.style.display = "none";
-      overlay.style.display = "none";
-  } else {
-      modal.style.display = "block";
-      overlay.style.display = "block";
-  }
-}
+// Theme Toggle
+const themeToggle = document.getElementById('theme-toggle');
+themeToggle.addEventListener('change', () => {
+    document.body.classList.toggle('dark-mode');
+    document.body.classList.toggle('light-mode');
+});
 
-function closeModal() {
-  document.getElementById("connect-wallet-modal").style.display = "none";
-  document.getElementById("overlay").style.display = "none";
-}
+// Connect Wallet
+const connectWalletBtn = document.getElementById('connect-wallet-btn');
+const connectWalletModal = document.getElementById('connect-wallet-modal');
+const overlay = document.getElementById('overlay');
+const walletOptions = document.querySelectorAll('.wallet-option');
 
-function connectMetamask() {
-  alert("Connecting to Metamask...");
-  closeModal();
-}
+connectWalletBtn.addEventListener('click', () => {
+    connectWalletModal.style.display = 'block';
+    overlay.style.display = 'block';
+});
 
-function connectOKXWallet() {
-  alert("Connecting to OKX Wallet...");
-  closeModal();
-}
+walletOptions.forEach(option => {
+    option.addEventListener('click', async () => {
+        const wallet = option.getAttribute('data-wallet');
+        connectWalletBtn.textContent = `Connected: ${wallet}`;
+        connectWalletModal.style.display = 'none';
+        overlay.style.display = 'none';
 
-function connectWalletConnect() {
-  alert("Connecting to WalletConnect...");
-  closeModal();
-}
+        // Integrasi dengan Web3.js untuk connect ke jaringan TEA Sepolia
+        if (wallet === 'metamask' && typeof window.ethereum !== 'undefined') {
+            try {
+                // Request akun dari Metamask
+                await window.ethereum.request({ method: 'eth_requestAccounts' });
 
-function toggleTheme() {
-  const body = document.body;
-  const themeToggle = document.getElementById("theme-toggle");
-  if (body.classList.contains("dark-mode")) {
-      body.classList.remove("dark-mode");
-      body.classList.add("light-mode");
-  } else {
-      body.classList.remove("light-mode");
-      body.classList.add("dark-mode");
-  }
-}
+                // Setup Web3 dengan RPC TEA Sepolia
+                const web3 = new Web3(new Web3.providers.HttpProvider('https://tea-sepolia.g.alchemy.com/v2/X6UAIRaCqvRedwmWtWHXtKNxG3kQmwh1'));
 
-let currentSlippage = 0.5; // Default slippage
+                // Cek jaringan
+                const chainId = await web3.eth.getChainId();
+                console.log('Connected to chain ID:', chainId);
 
-function performSwap() {
-  const amountIn = document.getElementById("amount-in").value;
-  const tokenIn = document.getElementById("token-in").value;
-  const tokenOut = document.getElementById("token-out").value;
-  const amountOutField = document.getElementById("amount-out");
-  const rateInfo = document.getElementById("rate-info");
-  const priceImpactField = document.getElementById("price-impact");
-  const minReceivedField = document.getElementById("min-received");
+                // Tambah jaringan TEA Sepolia ke Metamask (opsional, kalau belum ada)
+                await window.ethereum.request({
+                    method: 'wallet_addEthereumChain',
+                    params: [{
+                        chainId: '0x27EA', // Chain ID TEA Sepolia (10218 dalam hex)
+                        chainName: 'Tea Sepolia',
+                        rpcUrls: ['https://tea-sepolia.g.alchemy.com/v2/X6UAIRaCqvRedwmWtWHXtKNxG3kQmwh1'],
+                        nativeCurrency: {
+                            name: 'TEA',
+                            symbol: 'TEA',
+                            decimals: 18
+                        },
+                        blockExplorerUrls: ['https://sepolia.tea.xyz']
+                    }]
+                });
 
-  if (!amountIn || amountIn <= 0) {
-      rateInfo.textContent = "Please enter a valid amount.";
-      amountOutField.value = "";
-      priceImpactField.textContent = "0%";
-      minReceivedField.textContent = "0";
-      return;
-  }
+                // Ambil estimasi gas fee (contoh sederhana)
+                const gasPrice = await web3.eth.getGasPrice();
+                const gasPriceInEth = web3.utils.fromWei(gasPrice, 'ether');
+                const gasEstimate = 21000; // Estimasi gas untuk transaksi sederhana
+                const gasFeeInEth = gasPriceInEth * gasEstimate;
+                const gasFeeInUsd = gasFeeInEth * 2000; // Asumsi 1 ETH = $2000
+                document.getElementById('gas-fee-value').textContent = `$${gasFeeInUsd.toFixed(2)}`;
+                document.getElementById('network-cost').textContent = `$${gasFeeInUsd.toFixed(2)}`;
+            } catch (error) {
+                console.error('Error connecting to wallet:', error);
+            }
+        }
+    });
+});
 
-  let rate = 1;
-  if (tokenIn === "ETH" && tokenOut === "CREAM") rate = 1000;
-  else if (tokenIn === "CREAM" && tokenOut === "ETH") rate = 0.001;
-  else if (tokenIn === "USDT" && tokenOut === "CREAM") rate = 0.5;
-  else if (tokenIn === "CREAM" && tokenOut === "USDT") rate = 2;
-  else if (tokenIn === "ETH" && tokenOut === "USDT") rate = 2000;
-  else if (tokenIn === "USDT" && tokenOut === "ETH") rate = 0.0005;
+overlay.addEventListener('click', () => {
+    connectWalletModal.style.display = 'none';
+    tokenSelectModal.style.display = 'none';
+    overlay.style.display = 'none';
+});
 
-  const amountOut = amountIn * rate;
-  
-  const slippageFactor = 1 - (currentSlippage / 100);
-  const minReceived = amountOut * slippageFactor;
+// Slippage Settings
+const settingsBtn = document.querySelector('.settings-btn');
+const slippagePopup = document.getElementById('slippage-popup');
+const slippageButtons = document.querySelectorAll('.slippage-btn');
+const maxSlippage = document.getElementById('max-slippage');
 
-  const priceImpact = Math.min((amountIn / 1000) * 100, 10).toFixed(2);
+settingsBtn.addEventListener('click', () => {
+    slippagePopup.style.display = slippagePopup.style.display === 'block' ? 'none' : 'block';
+});
 
-  amountOutField.value = amountOut.toFixed(6);
-  rateInfo.textContent = `1 ${tokenIn} = ${rate} ${tokenOut}`;
-  priceImpactField.textContent = `${priceImpact}%`;
-  minReceivedField.textContent = `${minReceived.toFixed(6)} ${tokenOut}`;
-}
+slippageButtons.forEach(button => {
+    button.addEventListener('click', () => {
+        slippageButtons.forEach(btn => btn.classList.remove('active'));
+        button.classList.add('active');
+        const slippage = button.getAttribute('data-slippage');
+        maxSlippage.textContent = `Auto ${slippage}%`; // Update nilai Max Slippage di detail
+    });
+});
 
-function switchTokens() {
-  const tokenIn = document.getElementById("token-in");
-  const tokenOut = document.getElementById("token-out");
-  const amountIn = document.getElementById("amount-in");
-  const amountOut = document.getElementById("amount-out");
+document.addEventListener('click', (e) => {
+    if (!settingsBtn.contains(e.target) && !slippagePopup.contains(e.target)) {
+        slippagePopup.style.display = 'none';
+    }
+});
 
-  const tempToken = tokenIn.value;
-  tokenIn.value = tokenOut.value;
-  tokenOut.value = tempToken;
+// Token Selection
+const fromTokenBtn = document.getElementById('from-token-btn');
+const toTokenBtn = document.getElementById('to-token-btn');
+const tokenSelectModal = document.getElementById('token-select-modal');
+const tokenOptions = document.querySelectorAll('.token-option');
+let currentInput = null;
 
-  const tempAmount = amountIn.value;
-  amountIn.value = amountOut.value;
-  amountOut.value = tempAmount;
+fromTokenBtn.addEventListener('click', () => {
+    currentInput = 'from';
+    tokenSelectModal.style.display = 'block';
+    overlay.style.display = 'block';
+});
 
-  if (amountIn.value) performSwap();
-}
+toTokenBtn.addEventListener('click', () => {
+    currentInput = 'to';
+    tokenSelectModal.style.display = 'block';
+    overlay.style.display = 'block';
+});
 
-function toggleSlippagePopup() {
-  const popup = document.getElementById("slippage-popup");
-  popup.style.display = popup.style.display === "block" ? "none" : "block";
-}
+tokenOptions.forEach(option => {
+    option.addEventListener('click', () => {
+        const token = option.getAttribute('data-token');
+        const imgSrc = option.querySelector('img').src;
+        const btn = currentInput === 'from' ? fromTokenBtn : toTokenBtn;
+        btn.innerHTML = `<img src="${imgSrc}" alt="${token}" class="token-img"> ${token}`;
+        tokenSelectModal.style.display = 'none';
+        overlay.style.display = 'none';
+    });
+});
 
-function setSlippage(value) {
-  currentSlippage = value;
-  const buttons = document.querySelectorAll(".slippage-btn");
-  buttons.forEach(btn => {
-      btn.classList.remove("active");
-      if (parseFloat(btn.getAttribute("data-slippage")) === value) {
-          btn.classList.add("active");
-      }
-  });
-  document.getElementById("slippage-custom").value = "";
-  performSwap();
-}
+// Swap Info Toggle
+const swapInfoToggle = document.querySelector('.swap-info-toggle');
+const swapInfoDetails = document.getElementById('swap-info-details');
 
-function setCustomSlippage() {
-  const customInput = document.getElementById("slippage-custom");
-  const value = parseFloat(customInput.value);
-  if (value > 0) {
-      currentSlippage = value;
-      const buttons = document.querySelectorAll(".slippage-btn");
-      buttons.forEach(btn => btn.classList.remove("active"));
-      performSwap();
-  }
-}
-
-document.getElementById("amount-in").addEventListener("input", performSwap);
-document.getElementById("token-in").addEventListener("change", performSwap);
-document.getElementById("token-out").addEventListener("change", performSwap);
-
-document.addEventListener("DOMContentLoaded", function() {
-  const themeToggle = document.getElementById("theme-toggle");
-  themeToggle.checked = false;
-  // Set default slippage button as active
-  setSlippage(0.5);
+swapInfoToggle.addEventListener('click', () => {
+    swapInfoToggle.classList.toggle('active');
+    swapInfoDetails.classList.toggle('active');
 });
