@@ -296,34 +296,24 @@ body:not(.dark) .wallet-popup-content {
 }
 
 .wallet-option {
-  padding: 12px;
-  border-radius: 8px;
-  cursor: pointer;
   display: flex;
   align-items: center;
-  gap: 10px;
-  justify-content: center;
-  border: none;
-  transition: background-color 0.3s;
+  padding: 10px;
+  margin: 10px 0;
+  background: #f5f5f5;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: background 0.3s ease; /* Animasi mulus pas hover */
 }
 
-body.dark .wallet-option {
-  background-color: #2c2f36;
-  color: white;
+.wallet-option:hover {
+  background: #e0e0e0;
 }
 
-body.dark .wallet-option:hover {
-  background-color: #3b3f46;
-}
-
-body:not(.dark) .wallet-option {
-  background-color: #eee;
-  color: black;
-}
-
-body:not(.dark) .wallet-option:hover {
-  background-color: #ddd;
-}
+.wallet-option img {
+  width: 30px; /* Ukuran logo konsisten */
+  height: 30px;
+  margin-right: 10px;
 
 /* === Footer === */
 .footer {
