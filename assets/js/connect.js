@@ -1,4 +1,5 @@
 // Pastikan Web3.js di-load di HTML sebelum connect.js
+// <script src="https://cdn.jsdelivr.net/npm/web3@1.7.0/dist/web3.min.js"></script>
 
 // Theme Toggle
 const themeToggle = document.getElementById('theme-toggle');
@@ -27,9 +28,14 @@ const swapBtn = document.getElementById('swap-btn');
 const swapArrow = document.querySelector('.swap-arrow');
 const fromTokenBtn = document.getElementById('from-token-btn');
 const toTokenBtn = document.getElementById('to-token-btn');
+const swapInfoToggle = document.querySelector('.swap-info-toggle');
+const swapInfoDetails = document.getElementById('swap-info-details');
+const settingsBtn = document.querySelector('.settings-btn');
+const slippagePopup = document.getElementById('slippage-popup');
+const slippageButtons = document.querySelectorAll('.slippage-btn');
 
 // Contract setup
-const swapContractAddress = "0xB564F19A48e8b594B9A9418ef530e33e70017778";
+const swapContractAddress = "0x2Df375927056AA8dC0fDBbA701Db8eA6AAf3203F";
 const swapContractAbi = [
     {
         "type": "function",
@@ -54,19 +60,12 @@ const swapContractAbi = [
     },
     {
         "type": "function",
-        "name": "withdrawTea",
+        "name": "swapTokenToToken",
         "inputs": [
-            { "name": "amount", "type": "uint256" }
-        ],
-        "outputs": [],
-        "stateMutability": "nonpayable"
-    },
-    {
-        "type": "function",
-        "name": "withdrawToken",
-        "inputs": [
-            { "name": "token", "type": "address" },
-            { "name": "amount", "type": "uint256" }
+            { "name": "tokenIn", "type": "address" },
+            { "name": "tokenOut", "type": "address" },
+            { "name": "amountIn", "type": "uint256" },
+            { "name": "amountOutMin", "type": "uint256" }
         ],
         "outputs": [],
         "stateMutability": "nonpayable"
@@ -90,6 +89,18 @@ const swapContractAbi = [
             { "name": "tokenIn", "type": "address", "indexed": false },
             { "name": "tokenInAmount", "type": "uint256", "indexed": false },
             { "name": "teaOut", "type": "uint256", "indexed": false }
+        ],
+        "anonymous": false
+    },
+    {
+        "type": "event",
+        "name": "SwapTokenToToken",
+        "inputs": [
+            { "name": "user", "type": "address", "indexed": true },
+            { "name": "tokenIn", "type": "address", "indexed": false },
+            { "name": "tokenOut", "type": "address", "indexed": false },
+            { "name": "amountIn", "type": "uint256", "indexed": false },
+            { "name": "amountOut", "type": "uint256", "indexed": false }
         ],
         "anonymous": false
     }
@@ -137,7 +148,7 @@ const erc20Abi = [
             { "name": "_spender", "type": "address" }
         ],
         "name": "allowance",
-        "outputs": [{ "name": "", "type": "uint256" }],
+        "outputs": [{ "name": "balance", "type": "uint256" }],
         "stateMutability": "view",
         "type": "function"
     }
@@ -147,8 +158,9 @@ const erc20Abi = [
 let currentProvider = null;
 let walletType = null;
 let fromToken = { name: 'TEA', address: 'native' };
-let toToken = { name: 'ETH', address: '0x8339581846eDf61dc147966E807e48763dCb09E8' };
+let toToken = { name: 'ETH', address: '0xA8AA9806De2A5b8E8C9C81DA7accE4A883f66476' };
 let fromBalance = 0;
+let slippageTolerance = 0.5; // Default slippage
 
 const TEA_SEPOLIA_CHAIN_ID = 10218;
 
@@ -176,30 +188,109 @@ const updateFromBalance = async () => {
     fromBalance = await getTokenBalance(web3, address, fromToken);
     fromBalanceSpan.textContent = `${fromBalance} ${fromToken.name}`;
     balanceInfo.style.display = 'flex';
+    await updateSwapButtonState();
 };
 
 // Update estimasi output
-const updateEstimatedOutput = () => {
+const updateEstimatedOutput = async () => {
     const fromAmount = parseFloat(fromAmountInput.value) || 0;
     let ratio;
-    if (fromToken.name === 'TEA' && toToken.name === 'ETH') ratio = 0.0001;
-    else if (fromToken.name === 'TEA' && toToken.name === 'USDT') ratio = 0.0001;
-    else if (fromToken.name === 'ETH' && toToken.name === 'TEA') ratio = 10000;
-    else if (fromToken.name === 'USDT' && toToken.name === 'TEA') ratio = 10000;
+    if (fromToken.name === 'TEA' && (toToken.name === 'ETH' || toToken.name === 'USDT')) ratio = 0.0001;
+    else if ((fromToken.name === 'ETH' || fromToken.name === 'USDT') && toToken.name === 'TEA') ratio = 10000;
+    else if (fromToken.name === 'ETH' && toToken.name === 'USDT') ratio = 1;
+    else if (fromToken.name === 'USDT' && toToken.name === 'ETH') ratio = 1;
     else ratio = 1;
 
     const toAmount = fromAmount * ratio;
     toAmountInput.value = toAmount.toFixed(6);
     estimatedOutput.textContent = `~${toAmount.toFixed(6)} ${toToken.name}`;
+
+    const slippageFactor = 1 - (slippageTolerance / 100);
+    const minReceived = toAmount * slippageFactor;
+    document.getElementById('minimum-received').textContent = `${minReceived.toFixed(6)} ${toToken.name}`;
+    document.getElementById('price-impact').textContent = '0.1%';
+    document.getElementById('max-slippage').textContent = `${slippageTolerance}%`;
+
+    if (currentProvider) {
+        const web3 = new Web3(currentProvider);
+        const gasPrice = await web3.eth.getGasPrice();
+        const gasEstimate = 100000;
+        const gasFeeInEth = web3.utils.fromWei((gasPrice * gasEstimate).toString(), 'ether');
+        const gasFeeInUsd = gasFeeInEth * 2000;
+        document.getElementById('gas-fee-value').textContent = `$${gasFeeInUsd.toFixed(2)}`;
+        document.getElementById('network-cost').textContent = `$${gasFeeInUsd.toFixed(2)}`;
+
+        if (toToken.address !== 'native') {
+            const tokenContract = new web3.eth.Contract(erc20Abi, toToken.address);
+            const decimals = await tokenContract.methods.decimals().call();
+            const balance = await tokenContract.methods.balanceOf(swapContractAddress).call();
+            console.log(`Contract balance ${toToken.name}: ${(balance / 10**decimals).toFixed(4)}`);
+        }
+        const teaBalance = await web3.eth.getBalance(swapContractAddress);
+        console.log(`Contract balance TEA: ${web3.utils.fromWei(teaBalance, 'ether')}`);
+    }
+    await updateSwapButtonState();
 };
 
-// Event listener buat input "From"
-fromAmountInput.addEventListener('input', updateEstimatedOutput);
+// Fungsi cek allowance dan update tombol Approve/Swap
+const updateSwapButtonState = async () => {
+    if (!currentProvider || fromToken.address === 'native') {
+        swapBtn.textContent = 'Swap';
+        swapBtn.dataset.action = 'swap';
+        return;
+    }
+
+    const web3 = new Web3(currentProvider);
+    const accounts = await web3.eth.getAccounts();
+    if (!accounts || accounts.length === 0) return;
+
+    const fromAmount = parseFloat(fromAmountInput.value) || 0;
+    if (fromAmount <= 0) {
+        swapBtn.textContent = 'Enter an amount';
+        swapBtn.disabled = true;
+        return;
+    } else {
+        swapBtn.disabled = false;
+    }
+
+    const amountIn = web3.utils.toWei(fromAmount.toString(), 'ether');
+    const tokenContract = new web3.eth.Contract(erc20Abi, fromToken.address);
+    const allowance = await tokenContract.methods.allowance(accounts[0], swapContractAddress).call();
+
+    if (parseInt(allowance) < parseInt(amountIn)) {
+        swapBtn.textContent = `Approve ${fromToken.name}`;
+        swapBtn.dataset.action = 'approve';
+    } else {
+        swapBtn.textContent = 'Swap';
+        swapBtn.dataset.action = 'swap';
+    }
+};
+
+// Event listener buat input "From" dan token selection
+fromAmountInput.addEventListener('input', async () => {
+    await updateEstimatedOutput();
+    await updateSwapButtonState();
+});
+
+fromTokenBtn.addEventListener('click', async () => {
+    currentInput = 'from';
+    tokenSelectModal.style.display = 'block';
+    overlay.style.display = 'block';
+    await updateSwapButtonState();
+});
+
+toTokenBtn.addEventListener('click', async () => {
+    currentInput = 'to';
+    tokenSelectModal.style.display = 'block';
+    overlay.style.display = 'block';
+    await updateSwapButtonState();
+});
 
 // Tombol Max
-maxBtn.addEventListener('click', () => {
+maxBtn.addEventListener('click', async () => {
     fromAmountInput.value = fromBalance;
-    updateEstimatedOutput();
+    await updateEstimatedOutput();
+    await updateSwapButtonState();
 });
 
 // Tombol Swap Arrow
@@ -217,18 +308,33 @@ swapArrow.addEventListener('click', async () => {
     toAmountInput.value = tempAmount;
 
     await updateFromBalance();
-    updateEstimatedOutput();
+    await updateEstimatedOutput();
+    await updateSwapButtonState();
 });
 
-// Tombol Swap
+// Slippage Settings
+settingsBtn.addEventListener('click', () => {
+    slippagePopup.style.display = slippagePopup.style.display === 'block' ? 'none' : 'block';
+});
+
+slippageButtons.forEach(btn => {
+    btn.addEventListener('click', () => {
+        slippageButtons.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        slippageTolerance = parseFloat(btn.dataset.slippage);
+        document.getElementById('max-slippage').textContent = `${slippageTolerance}%`;
+        updateEstimatedOutput();
+        slippagePopup.style.display = 'none';
+    });
+});
+
+// Tombol Swap/Approve
 swapBtn.addEventListener('click', async () => {
-    console.log('Swap button clicked, provider:', currentProvider);
     if (!currentProvider) {
         alert('Please connect your wallet to Tea Sepolia first!');
         return;
     }
     const fromAmount = parseFloat(fromAmountInput.value) || 0;
-    console.log('From amount:', fromAmount);
     if (fromAmount <= 0) {
         alert('Please enter a valid amount to swap!');
         return;
@@ -240,48 +346,90 @@ swapBtn.addEventListener('click', async () => {
 
     const web3 = new Web3(currentProvider);
     const accounts = await web3.eth.getAccounts();
-    console.log('Account:', accounts[0]);
     const swapContract = new web3.eth.Contract(swapContractAbi, swapContractAddress);
 
     const amountIn = web3.utils.toWei(fromAmount.toString(), 'ether');
+    const slippageFactor = 1 - (slippageTolerance / 100);
     let amountOutMin;
-    if (fromToken.address === 'native') {
-        // TEA ke Token: 1 TEA = 0.0001 token
-        amountOutMin = web3.utils.toWei((fromAmount * 0.0001 * 0.95).toString(), 'ether');
-    } else {
-        // Token ke TEA: 1 token = 10000 TEA
-        amountOutMin = web3.utils.toWei((fromAmount * 10000 * 0.95).toString(), 'ether');
-    }
-    console.log('Amount in:', amountIn, 'Amount out min:', amountOutMin);
 
     try {
+        if (swapBtn.dataset.action === 'approve') {
+            const tokenContract = new web3.eth.Contract(erc20Abi, fromToken.address);
+            swapBtn.textContent = `Approving ${fromToken.name}...`;
+            swapBtn.disabled = true;
+            await tokenContract.methods.approve(swapContractAddress, amountIn).send({ from: accounts[0] });
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            swapBtn.textContent = 'Swap';
+            swapBtn.dataset.action = 'swap';
+            swapBtn.disabled = false;
+            return;
+        }
+
         let tx;
         if (fromToken.address === 'native') {
-            console.log('Swapping TEA to', toToken.name, 'at', toToken.address);
+            amountOutMin = web3.utils.toWei((fromAmount * 0.0001 * slippageFactor).toString(), 'ether');
+            console.log('Swapping TEA to', toToken.name, 'at', toToken.address, 'with min output:', web3.utils.fromWei(amountOutMin, 'ether'));
+            const tokenBalance = toToken.address === 'native' ? 
+                await web3.eth.getBalance(swapContractAddress) : 
+                await new web3.eth.Contract(erc20Abi, toToken.address).methods.balanceOf(swapContractAddress).call();
+            if (parseInt(tokenBalance) < parseInt(amountOutMin)) {
+                throw new Error(`Insufficient ${toToken.name} liquidity in contract: ${web3.utils.fromWei(tokenBalance, 'ether')}`);
+            }
             tx = await swapContract.methods.swapTeaToToken(toToken.address, amountOutMin).send({
                 from: accounts[0],
-                value: amountIn
+                value: amountIn,
+                gas: 300000
             });
-        } else {
-            console.log('Swapping', fromToken.name, 'to TEA');
-            const tokenContract = new web3.eth.Contract(erc20Abi, fromToken.address);
-            const allowance = await tokenContract.methods.allowance(accounts[0], swapContractAddress).call();
-            console.log('Allowance:', allowance);
-            if (parseInt(allowance) < parseInt(amountIn)) {
-                console.log('Approving', fromToken.name, 'for', amountIn);
-                await tokenContract.methods.approve(swapContractAddress, amountIn).send({ from: accounts[0] });
-                await new Promise(resolve => setTimeout(resolve, 2000));
+        } else if (toToken.address === 'native') {
+            amountOutMin = web3.utils.toWei((fromAmount * 10000 * slippageFactor).toString(), 'ether');
+            console.log('Swapping', fromToken.name, 'to TEA with min output:', web3.utils.fromWei(amountOutMin, 'ether'));
+            const teaBalance = await web3.eth.getBalance(swapContractAddress);
+            if (parseInt(teaBalance) < parseInt(amountOutMin)) {
+                throw new Error(`Insufficient TEA liquidity in contract: ${web3.utils.fromWei(teaBalance, 'ether')}`);
             }
             tx = await swapContract.methods.swapTokenToTea(fromToken.address, amountIn, amountOutMin).send({
-                from: accounts[0]
+                from: accounts[0],
+                gas: 300000
+            });
+        } else {
+            amountOutMin = web3.utils.toWei((fromAmount * 1 * slippageFactor).toString(), 'ether');
+            console.log('Swapping', fromToken.name, 'to', toToken.name, 'with min output:', web3.utils.fromWei(amountOutMin, 'ether'));
+            const tokenBalance = await new web3.eth.Contract(erc20Abi, toToken.address).methods.balanceOf(swapContractAddress).call();
+            if (parseInt(tokenBalance) < parseInt(amountOutMin)) {
+                throw new Error(`Insufficient ${toToken.name} liquidity in contract: ${web3.utils.fromWei(tokenBalance, 'ether')}`);
+            }
+            tx = await swapContract.methods.swapTokenToToken(fromToken.address, toToken.address, amountIn, amountOutMin).send({
+                from: accounts[0],
+                gas: 300000
             });
         }
         console.log('Tx hash:', tx.transactionHash);
-        alert(`Swap successful! Tx: ${tx.transactionHash}`);
+        const modal = document.getElementById('success-modal');
+        const message = document.getElementById('success-message');
+        const txLink = document.getElementById('tx-link');
+        const closeModal = document.getElementById('close-modal');
+
+        message.textContent = `Swapped ${fromAmount} ${fromToken.name} to ${toToken.name}!`;
+        txLink.href = `https://sepolia.tea.xyz/tx/${tx.transactionHash}`;
+        txLink.textContent = 'View on Tea Sepolia';
+        modal.style.display = 'flex';
+        overlay.style.display = 'block';
+
+        closeModal.onclick = () => {
+            modal.style.display = 'none';
+            overlay.style.display = 'none';
+        };
+        overlay.onclick = () => {
+            modal.style.display = 'none';
+            overlay.style.display = 'none';
+        };
+
         await updateFromBalance();
     } catch (error) {
-        console.error('Swap error:', error);
-        alert('Swap failed! Check console for details.');
+        console.error('Swap/Approve error:', error);
+        alert(`Transaction failed! ${error.message || 'Check console for details.'}`);
+        swapBtn.disabled = false;
+        await updateSwapButtonState();
     }
 });
 
@@ -317,18 +465,13 @@ walletOptions.forEach(option => {
 
         const ensureTeaSepolia = async (provider) => {
             try {
-                console.log('Checking chain...');
                 const chainId = await provider.request({ method: 'eth_chainId' });
-                console.log('Current chain ID:', parseInt(chainId, 16));
-
                 if (parseInt(chainId, 16) !== TEA_SEPOLIA_CHAIN_ID) {
-                    console.log('Switching to Tea Sepolia...');
                     await provider.request({
                         method: 'wallet_switchEthereumChain',
                         params: [{ chainId: '0x' + TEA_SEPOLIA_CHAIN_ID.toString(16) }],
                     }).catch(async (switchError) => {
                         if (switchError.code === 4902) {
-                            console.log('Adding Tea Sepolia...');
                             await provider.request({
                                 method: 'wallet_addEthereumChain',
                                 params: [{
@@ -343,13 +486,7 @@ walletOptions.forEach(option => {
                             throw switchError;
                         }
                     });
-
                     await new Promise(resolve => setTimeout(resolve, 2000));
-                    const newChainId = await provider.request({ method: 'eth_chainId' });
-                    console.log('New chain ID:', parseInt(newChainId, 16));
-                    if (parseInt(newChainId, 16) !== TEA_SEPOLIA_CHAIN_ID) {
-                        throw new Error('Failed to switch to Tea Sepolia');
-                    }
                 }
             } catch (error) {
                 console.error('Error ensuring Tea Sepolia:', error);
@@ -360,44 +497,30 @@ walletOptions.forEach(option => {
         if (wallet === 'metamask' && window.ethereum) {
             try {
                 const provider = window.ethereum;
-                console.log('Metamask detected');
-
                 await ensureTeaSepolia(provider);
-
                 const accounts = await provider.request({ method: 'eth_requestAccounts' });
-                if (!accounts || accounts.length === 0) throw new Error('No accounts found');
-
                 currentProvider = provider;
                 const web3 = new Web3(currentProvider);
-
-                console.log('Connected to Metamask, address:', accounts[0]);
                 connectWalletBtn.textContent = formatAddress(accounts[0]);
                 await updateGasFee(web3);
                 await updateFromBalance();
             } catch (error) {
                 console.error('Metamask connection error:', error);
-                alert('Failed to connect to Metamask! Ensure it’s unlocked and on Tea Sepolia.');
+                alert('Failed to connect to Metamask!');
             }
         } else if (wallet === 'okx' && window.okxwallet) {
             try {
                 const provider = window.okxwallet;
-                console.log('OKX Wallet detected');
-
                 await ensureTeaSepolia(provider);
-
                 const accounts = await provider.request({ method: 'eth_requestAccounts' });
-                if (!accounts || accounts.length === 0) throw new Error('No accounts found');
-
                 currentProvider = provider;
                 const web3 = new Web3(currentProvider);
-
-                console.log('Connected to OKX Wallet, address:', accounts[0]);
                 connectWalletBtn.textContent = formatAddress(accounts[0]);
                 await updateGasFee(web3);
                 await updateFromBalance();
             } catch (error) {
                 console.error('OKX Wallet connection error:', error);
-                alert('Failed to connect to OKX Wallet! Ensure it’s unlocked and on Tea Sepolia.');
+                alert('Failed to connect to OKX Wallet!');
             }
         } else {
             alert(`Please install ${wallet === 'metamask' ? 'Metamask' : 'OKX Wallet'} extension!`);
@@ -410,35 +533,22 @@ const showAssets = async () => {
     if (!currentProvider) return;
     const web3 = new Web3(currentProvider);
     const accounts = await web3.eth.getAccounts();
-    if (!accounts || accounts.length === 0) return;
-
     const address = accounts[0];
     assetList.innerHTML = '';
 
     const teaBalance = await getTokenBalance(web3, address, { name: 'TEA', address: 'native' });
-    const teaItem = document.createElement('div');
-    teaItem.className = 'asset-item';
-    teaItem.innerHTML = `<span>TEA</span><span>${parseFloat(teaBalance).toFixed(4)} TEA</span>`;
-    assetList.appendChild(teaItem);
-
-    const ethBalance = await getTokenBalance(web3, address, { name: 'ETH', address: '0x8339581846eDf61dc147966E807e48763dCb09E8' });
-    const ethItem = document.createElement('div');
-    ethItem.className = 'asset-item';
-    ethItem.innerHTML = `<span>ETH</span><span>${parseFloat(ethBalance).toFixed(4)} ETH</span>`;
-    assetList.appendChild(ethItem);
-
-    const usdtBalance = await getTokenBalance(web3, address, { name: 'USDT', address: '0x9e1C4327ee92248C6b8B76d175d20B8F5cf1b168' });
-    const usdtItem = document.createElement('div');
-    usdtItem.className = 'asset-item';
-    usdtItem.innerHTML = `<span>USDT</span><span>${parseFloat(usdtBalance).toFixed(4)} USDT</span>`;
-    assetList.appendChild(usdtItem);
+    assetList.innerHTML += `<div class="asset-item"><span>TEA</span><span>${parseFloat(teaBalance).toFixed(4)} TEA</span></div>`;
+    const ethBalance = await getTokenBalance(web3, address, { name: 'ETH', address: '0xA8AA9806De2A5b8E8C9C81DA7accE4A883f66476' });
+    assetList.innerHTML += `<div class="asset-item"><span>ETH</span><span>${parseFloat(ethBalance).toFixed(4)} ETH</span></div>`;
+    const usdtBalance = await getTokenBalance(web3, address, { name: 'USDT', address: '0x2a215664473a03A7bE43eEa7aecB99D3142cf06f' });
+    assetList.innerHTML += `<div class="asset-item"><span>USDT</span><span>${parseFloat(usdtBalance).toFixed(4)} USDT</span></div>`;
 
     assetModal.style.display = 'block';
     overlay.style.display = 'block';
 };
 
 // Disconnect Wallet
-disconnectWalletBtn.addEventListener('click', async () => {
+disconnectWalletBtn.addEventListener('click', () => {
     currentProvider = null;
     walletType = null;
     connectWalletBtn.textContent = 'Connect Wallet';
@@ -469,20 +579,9 @@ const selectToken = async (option) => {
 
     tokenSelectModal.style.display = 'none';
     overlay.style.display = 'none';
-    updateEstimatedOutput();
+    await updateEstimatedOutput();
+    await updateSwapButtonState();
 };
-
-fromTokenBtn.addEventListener('click', () => {
-    currentInput = 'from';
-    tokenSelectModal.style.display = 'block';
-    overlay.style.display = 'block';
-});
-
-toTokenBtn.addEventListener('click', () => {
-    currentInput = 'to';
-    tokenSelectModal.style.display = 'block';
-    overlay.style.display = 'block';
-});
 
 tokenList.querySelectorAll('.token-option').forEach(option => {
     option.addEventListener('click', () => selectToken(option));
@@ -511,11 +610,6 @@ addCustomTokenBtn.addEventListener('click', async () => {
         tokenOption.innerHTML = `<img src="assets/img/default-token.png" alt="${symbol}"> ${symbol}`;
         tokenList.appendChild(tokenOption);
         tokenOption.addEventListener('click', () => selectToken(tokenOption));
-
-        const customTokens = JSON.parse(localStorage.getItem('customTokens')) || [];
-        customTokens.push({ symbol, address: tokenAddress });
-        localStorage.setItem('customTokens', JSON.stringify(customTokens));
-
         customTokenAddressInput.value = '';
         alert(`${symbol} added successfully!`);
     } catch (error) {
@@ -528,49 +622,24 @@ overlay.addEventListener('click', () => {
     connectWalletModal.style.display = 'none';
     tokenSelectModal.style.display = 'none';
     assetModal.style.display = 'none';
+    document.getElementById('success-modal').style.display = 'none';
+    slippagePopup.style.display = 'none';
     overlay.style.display = 'none';
 });
 
-// Slippage Settings
-const settingsBtn = document.querySelector('.settings-btn');
-const slippagePopup = document.getElementById('slippage-popup');
-const slippageButtons = document.querySelectorAll('.slippage-btn');
-const maxSlippage = document.getElementById('max-slippage');
-
-settingsBtn.addEventListener('click', () => {
-    slippagePopup.style.display = slippagePopup.style.display === 'block' ? 'none' : 'block';
-});
-
-slippageButtons.forEach(button => {
-    button.addEventListener('click', () => {
-        slippageButtons.forEach(btn => btn.classList.remove('active'));
-        button.classList.add('active');
-        const slippage = button.getAttribute('data-slippage');
-        maxSlippage.textContent = `Auto ${slippage}%`;
-    });
-});
-
-document.addEventListener('click', (e) => {
-    if (!settingsBtn.contains(e.target) && !slippagePopup.contains(e.target)) {
-        slippagePopup.style.display = 'none';
-    }
-});
-
 // Swap Info Toggle
-const swapInfoToggle = document.querySelector('.swap-info-toggle');
-const swapInfoDetails = document.getElementById('swap-info-details');
-
 swapInfoToggle.addEventListener('click', () => {
     swapInfoToggle.classList.toggle('active');
     swapInfoDetails.classList.toggle('active');
+    updateEstimatedOutput();
 });
 
 // Load tokens ke modal
 const loadTokens = () => {
     const tokens = [
         { name: 'TEA', address: 'native' },
-        { name: 'ETH', address: '0x8339581846eDf61dc147966E807e48763dCb09E8' },
-        { name: 'USDT', address: '0x9e1C4327ee92248C6b8B76d175d20B8F5cf1b168' }
+        { name: 'ETH', address: '0xA8AA9806De2A5b8E8C9C81DA7accE4A883f66476' },
+        { name: 'USDT', address: '0x2a215664473a03A7bE43eEa7aecB99D3142cf06f' }
     ];
     tokenList.innerHTML = '';
     tokens.forEach(token => {
