@@ -5,26 +5,22 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CreamySwap</title>
     <link rel="stylesheet" href="assets/css/style.css">
-    <!-- WalletConnect library -->
-    <script src="https://unpkg.com/@walletconnect/web3-provider@1.8.0/dist/umd/index.min.js"></script>
 </head>
 <body class="dark-mode">
-    <!-- Navbar -->
     <nav class="navbar">
-        <a href="index.html" class="logo">
+        <a href="#" class="logo">
             <img src="assets/img/creamy-logo.png" alt="CreamySwap Logo" class="logo-img">
             CreamySwap
         </a>
         <div class="nav-right">
+            <button id="connect-wallet-btn">Connect Wallet</button>
             <label class="switch">
                 <input type="checkbox" id="theme-toggle">
                 <span class="slider"></span>
             </label>
-            <button id="connect-wallet-btn">Connect Wallet</button>
         </div>
     </nav>
 
-    <!-- Main Content -->
     <div class="container">
         <div class="swap-box">
             <div class="swap-header">
@@ -34,9 +30,9 @@
                     <h3>Settings</h3>
                     <label>Slippage Tolerance</label>
                     <div class="slippage-options">
-                        <button class="slippage-btn" data-slippage="0.1">0.1%</button>
                         <button class="slippage-btn active" data-slippage="0.5">0.5%</button>
                         <button class="slippage-btn" data-slippage="1">1%</button>
+                        <button class="slippage-btn" data-slippage="3">3%</button>
                     </div>
                     <div class="slippage-custom">
                         <input type="number" placeholder="Custom %" step="0.1">
@@ -44,12 +40,12 @@
                 </div>
             </div>
 
-            <!-- Input Token From -->
+            <!-- From -->
             <div class="swap-input-box">
-                <label>From</label>
+                <label for="from-amount">From</label>
                 <div class="input-wrapper">
-                    <input type="number" placeholder="0.0" id="from-amount">
-                    <button class="token-select-btn" id="from-token-btn">
+                    <input type="number" id="from-amount" placeholder="0.0">
+                    <button id="from-token-btn" class="token-select-btn">
                         <img src="assets/img/tea.png" alt="TEA" class="token-img"> TEA
                     </button>
                 </div>
@@ -59,111 +55,94 @@
                 </div>
             </div>
 
-            <!-- Swap Arrow -->
             <button class="swap-arrow">↓</button>
 
-            <!-- Input Token To -->
+            <!-- To -->
             <div class="swap-input-box">
-                <label>To</label>
+                <label for="to-amount">To</label>
                 <div class="input-wrapper">
-                    <input type="number" placeholder="0.0" id="to-amount" readonly>
-                    <button class="token-select-btn" id="to-token-btn">
+                    <input type="number" id="to-amount" placeholder="0.0" readonly>
+                    <button id="to-token-btn" class="token-select-btn">
                         <img src="assets/img/eth.png" alt="ETH" class="token-img"> ETH
                     </button>
                 </div>
             </div>
 
-            <!-- Swap Info -->
             <div class="swap-info">
                 <button class="swap-info-toggle">
-                    <span id="estimated-output">~0.0001 ETH</span>
-                    <div class="gas-fee">
-                        <img src="assets/img/gas.png" alt="Gas Fee" class="gas-icon">
-                        <span id="gas-fee-value">$2.23</span>
-                    </div>
+                    <span id="estimated-output">~0.0 ETH</span>
+                    <span class="gas-fee">
+                        <img src="assets/img/gas.png" alt="Gas Icon" class="gas-icon">
+                        <span id="gas-fee-value">$0.00</span>
+                    </span>
                     <span class="chevron">▼</span>
                 </button>
                 <div class="swap-info-details" id="swap-info-details">
                     <div class="swap-info-item">
-                        <span>CreamySwap Fee (0.25%)</span>
-                        <span>$3.65</span>
-                    </div>
-                    <div class="swap-info-item">
-                        <span>Network Cost</span>
-                        <span id="network-cost">$2.23</span>
-                    </div>
-                    <div class="swap-info-item">
-                        <span>Order Routing</span>
-                        <span>CreamySwap API</span>
+                        <span>Minimum Received</span>
+                        <span id="minimum-received">0.0 ETH</span>
                     </div>
                     <div class="swap-info-item">
                         <span>Price Impact</span>
-                        <span>-0.05%</span>
+                        <span id="price-impact">0%</span>
+                    </div>
+                    <div class="swap-info-item">
+                        <span>Network Cost</span>
+                        <span id="network-cost">$0.00</span>
                     </div>
                     <div class="swap-info-item">
                         <span>Max Slippage</span>
-                        <span id="max-slippage">Auto 0.50%</span>
+                        <span id="max-slippage">Auto 0.5%</span>
                     </div>
                 </div>
             </div>
 
-            <!-- Swap Button -->
             <button id="swap-btn">Swap</button>
         </div>
     </div>
 
-    <!-- Token Selection Popup -->
     <div id="overlay"></div>
-    <div id="token-select-modal" class="token-select-modal">
-        <h2>Select a Token</h2>
-        <div class="custom-token">
-            <input type="text" id="custom-token-address" placeholder="Enter token contract address">
-            <button id="add-custom-token-btn">Add Token</button>
-        </div>
-        <div id="token-list">
-            <div class="token-option" data-token="TEA" data-address="native">
-                <img src="assets/img/tea.png" alt="TEA"> TEA
-            </div>
-            <div class="token-option" data-token="ETH" data-address="0x..."> <!-- Ganti dengan address ETH di TEA Sepolia kalau ada -->
-                <img src="assets/img/eth.png" alt="ETH"> ETH
-            </div>
-            <div class="token-option" data-token="USDT" data-address="0x..."> <!-- Ganti dengan address USDT di TEA Sepolia kalau ada -->
-                <img src="assets/img/usdt.png" alt="USDT"> USDT
-            </div>
-            <div class="token-option" data-token="BNB" data-address="0x..."> <!-- Ganti dengan address BNB di TEA Sepolia kalau ada -->
-                <img src="assets/img/bnb.png" alt="BNB"> BNB
-            </div>
-        </div>
-    </div>
 
-    <!-- Connect Wallet Popup -->
     <div id="connect-wallet-modal">
         <h2>Connect Wallet</h2>
         <div class="wallet-option" data-wallet="metamask">
-            <img src="assets/img/metamask.png" alt="Metamask"> Metamask
-        </div>
-        <div class="wallet-option" data-wallet="walletconnect">
-            <img src="assets/img/walletconnect.png" alt="WalletConnect"> WalletConnect
+            <img src="assets/img/metamask.png" alt="MetaMask"> MetaMask
         </div>
         <div class="wallet-option" data-wallet="okx">
             <img src="assets/img/okx.png" alt="OKX Wallet"> OKX Wallet
         </div>
     </div>
 
-    <!-- Asset Popup -->
-    <div id="asset-modal" class="token-select-modal">
+    <div id="asset-modal">
         <h2>Your Assets</h2>
         <div id="asset-list"></div>
-        <button id="disconnect-wallet-btn" style="margin-top: 10px; background: #ff2d55; color: white; padding: 8px; border: none; border-radius: 6px; cursor: pointer;">Disconnect Wallet</button>
+        <button id="disconnect-wallet-btn">Disconnect Wallet</button>
     </div>
 
-    <!-- Footer -->
+    <div id="token-select-modal">
+        <h2>Select Token</h2>
+        <div class="custom-token">
+            <input type="text" id="custom-token-address" placeholder="Enter token contract address">
+            <button id="add-custom-token-btn">Add</button>
+        </div>
+        <div id="token-list">
+            <div class="token-option" data-token="TEA" data-address="native">
+                <img src="assets/img/tea.png" alt="TEA"> TEA
+            </div>
+            <div class="token-option" data-token="ETH" data-address="0xA8AA9806De2A5b8E8C9C81DA7accE4A883f66476">
+                <img src="assets/img/eth.png" alt="ETH"> ETH
+            </div>
+            <div class="token-option" data-token="USDT" data-address="0x2a215664473a03A7bE43eEa7aecB99D3142cf06f">
+                <img src="assets/img/usdt.png" alt="USDT"> USDT
+            </div>
+        </div>
+    </div>
+
     <footer class="footer">
         <p>© 2025 CreamySwap. All rights reserved.</p>
     </footer>
 
-    <!-- Web3.js untuk integrasi jaringan -->
-    <script src="https://cdn.jsdelivr.net/npm/web3@1.7.3/dist/web3.min.js"></script>
-    <script src="assets/js/connect.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/web3@1.7.0/dist/web3.min.js"></script>
+<script src="assets/js/connect.js"></script>
 </body>
 </html>
