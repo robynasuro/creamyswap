@@ -329,9 +329,11 @@ body.light-mode .swap-input-box label {
   position: relative;
   display: flex;
   align-items: center;
+  gap: 8px;
 }
 
 .swap-input-box input {
+  flex: 1;
   width: 100%;
   padding: 10px;
   border: none;
@@ -354,6 +356,50 @@ body.light-mode .swap-input-box input {
 .swap-input-box input::-webkit-inner-spin-button {
   -webkit-appearance: none;
   margin: 0;
+}
+
+/* Balance Info dan Tombol Max */
+.balance-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 5px;
+  font-size: 12px;
+  color: #999;
+}
+
+body.light-mode .balance-info {
+  color: #666;
+}
+
+.max-btn {
+  background: transparent;
+  padding: 2px 4px; /* Kecilin padding biar border nggak panjang */
+  border: 1px solid #666; /* Border abu-abu terang di dark mode */
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 11px;
+  transition: background 0.2s, color 0.2s;
+}
+
+body.dark-mode .max-btn {
+  color: #fff; /* Teks putih di dark mode */
+  border-color: #666; /* Border selaras sama background #252a2e */
+}
+
+body.dark-mode .max-btn:hover {
+  background: #444; /* Background abu-abu gelap pas hover */
+  color: #fff;
+}
+
+body.light-mode .max-btn {
+  color: #333; /* Teks abu-abu gelap di light mode */
+  border-color: #ccc; /* Border selaras sama background #f5f5f5 */
+}
+
+body.light-mode .max-btn:hover {
+  background: #ddd; /* Background abu-abu terang pas hover */
+  color: #333;
 }
 
 /* Tombol Pilih Token */
@@ -416,6 +462,43 @@ body.light-mode #token-select-modal {
   color: #333;
 }
 
+.custom-token {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 15px;
+}
+
+.custom-token input {
+  flex: 1;
+  padding: 8px;
+  border: 1px solid #444;
+  border-radius: 6px;
+  font-size: 13px;
+  background: #333;
+  color: #fff;
+}
+
+body.light-mode .custom-token input {
+  background: #fff;
+  color: #333;
+  border-color: #ccc;
+}
+
+.custom-token button {
+  padding: 8px;
+  border: none;
+  border-radius: 6px;
+  background: #ff2d55;
+  color: white;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.custom-token button:hover {
+  background: #e0284c;
+}
+
 .token-option {
   display: flex;
   align-items: center;
@@ -451,6 +534,47 @@ body.light-mode .token-option:hover {
 #token-select-modal h2 {
   margin: 0 0 15px 0;
   font-size: 18px;
+}
+
+/* Asset Popup */
+#asset-modal {
+  display: none;
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  padding: 20px;
+  border-radius: 10px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+  z-index: 1001;
+  width: 280px;
+  text-align: left;
+}
+
+body.dark-mode #asset-modal {
+  background: #252a2e;
+  color: #fff;
+}
+
+body.light-mode #asset-modal {
+  background: #fff;
+  color: #333;
+}
+
+#asset-list .asset-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 10px;
+  margin: 8px 0;
+  border-radius: 5px;
+}
+
+body.dark-mode .asset-item {
+  background: #333;
+}
+
+body.light-mode .asset-item {
+  background: #f9f9f9;
 }
 
 /* Switch Arrow */
@@ -510,6 +634,7 @@ body.light-mode .swap-info-toggle {
 
 .swap-info-toggle:hover {
   color: #ff2d55;
+  background: transparent;
 }
 
 .swap-info-toggle #estimated-output {
@@ -521,8 +646,8 @@ body.light-mode .swap-info-toggle {
   display: flex;
   align-items: center;
   gap: 5px;
-  margin-left: 8px; /* Jarak antara estimasi token dan gas fee */
-  margin-right: 8px; /* Jarak antara gas fee dan chevron */
+  margin-left: 8px;
+  margin-right: 8px;
 }
 
 .swap-info-toggle .gas-icon {
@@ -598,6 +723,18 @@ button:hover {
 }
 
 #connect-wallet-btn:hover {
+  background: #e0284c;
+}
+
+#disconnect-wallet-btn {
+  background: #ff2d55;
+  width: 100%;
+  padding: 8px;
+  border-radius: 6px;
+  margin-top: 10px;
+}
+
+#disconnect-wallet-btn:hover {
   background: #e0284c;
 }
 
