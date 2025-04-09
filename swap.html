@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CreamySwap</title>
     <link rel="stylesheet" href="assets/css/style.css">
+    <!-- WalletConnect library -->
+    <script src="https://unpkg.com/@walletconnect/web3-provider@1.8.0/dist/umd/index.min.js"></script>
 </head>
 <body class="dark-mode">
     <!-- Navbar -->
@@ -51,6 +53,10 @@
                         <img src="assets/img/tea.png" alt="TEA" class="token-img"> TEA
                     </button>
                 </div>
+                <div class="balance-info">
+                    <span>Balance: </span><span id="from-balance">0.0</span>
+                    <button id="max-btn" class="max-btn">Max</button>
+                </div>
             </div>
 
             <!-- Swap Arrow -->
@@ -60,7 +66,7 @@
             <div class="swap-input-box">
                 <label>To</label>
                 <div class="input-wrapper">
-                    <input type="number" placeholder="0.0" id="to-amount">
+                    <input type="number" placeholder="0.0" id="to-amount" readonly>
                     <button class="token-select-btn" id="to-token-btn">
                         <img src="assets/img/eth.png" alt="ETH" class="token-img"> ETH
                     </button>
@@ -110,17 +116,23 @@
     <div id="overlay"></div>
     <div id="token-select-modal" class="token-select-modal">
         <h2>Select a Token</h2>
-        <div class="token-option" data-token="TEA">
-            <img src="assets/img/tea.png" alt="TEA"> TEA
+        <div class="custom-token">
+            <input type="text" id="custom-token-address" placeholder="Enter token contract address">
+            <button id="add-custom-token-btn">Add Token</button>
         </div>
-        <div class="token-option" data-token="ETH">
-            <img src="assets/img/eth.png" alt="ETH"> ETH
-        </div>
-        <div class="token-option" data-token="USDT">
-            <img src="assets/img/usdt.png" alt="USDT"> USDT
-        </div>
-        <div class="token-option" data-token="BNB">
-            <img src="assets/img/bnb.png" alt="BNB"> BNB
+        <div id="token-list">
+            <div class="token-option" data-token="TEA" data-address="native">
+                <img src="assets/img/tea.png" alt="TEA"> TEA
+            </div>
+            <div class="token-option" data-token="ETH" data-address="0x..."> <!-- Ganti dengan address ETH di TEA Sepolia kalau ada -->
+                <img src="assets/img/eth.png" alt="ETH"> ETH
+            </div>
+            <div class="token-option" data-token="USDT" data-address="0x..."> <!-- Ganti dengan address USDT di TEA Sepolia kalau ada -->
+                <img src="assets/img/usdt.png" alt="USDT"> USDT
+            </div>
+            <div class="token-option" data-token="BNB" data-address="0x..."> <!-- Ganti dengan address BNB di TEA Sepolia kalau ada -->
+                <img src="assets/img/bnb.png" alt="BNB"> BNB
+            </div>
         </div>
     </div>
 
@@ -136,6 +148,13 @@
         <div class="wallet-option" data-wallet="okx">
             <img src="assets/img/okx.png" alt="OKX Wallet"> OKX Wallet
         </div>
+    </div>
+
+    <!-- Asset Popup -->
+    <div id="asset-modal" class="token-select-modal">
+        <h2>Your Assets</h2>
+        <div id="asset-list"></div>
+        <button id="disconnect-wallet-btn" style="margin-top: 10px; background: #ff2d55; color: white; padding: 8px; border: none; border-radius: 6px; cursor: pointer;">Disconnect Wallet</button>
     </div>
 
     <!-- Footer -->
