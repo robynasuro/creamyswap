@@ -4,13 +4,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CreamySwap</title>
-    <link rel="stylesheet" href="assets/css/style.css">
-    <link rel="icon" href="assets/img/creamy-logo.png" type="image/png">
+    <link rel="stylesheet" href="/assets/css/style.css">
+    <link rel="icon" href="/assets/img/creamy-logo.png" type="image/png">
 </head>
 <body class="dark-mode">
     <nav class="navbar">
-        <a href="#" class="logo">
-            <img src="assets/img/creamy-logo.png" alt="CreamySwap Logo" class="logo-img">
+        <a href="/" class="logo">
+            <img src="/assets/img/creamy-logo.png" alt="CreamySwap Logo" class="logo-img">
             CreamySwap
         </a>
         <div class="nav-right">
@@ -42,6 +42,7 @@
     <div class="tabs">
         <button class="tab-btn active" data-tab="swap">Swap</button>
         <button class="tab-btn" data-tab="pool">Liquidity Pools</button>
+        <button class="tab-btn" data-tab="history">History</button>
     </div>
 
     <div class="container">
@@ -58,7 +59,7 @@
                     <div class="input-wrapper">
                         <input type="number" id="from-amount" placeholder="0.0" step="0.01">
                         <button id="from-token-btn" class="token-select-btn">
-                            <img src="assets/img/tea.png" alt="TEA" class="token-img"> TEA
+                            <img src="/assets/img/tea.png" alt="TEA" class="token-img"> TEA
                         </button>
                     </div>
                     <div class="balance-info">
@@ -75,7 +76,7 @@
                     <div class="input-wrapper">
                         <input type="number" id="to-amount" placeholder="0.0" step="0.01" readonly>
                         <button id="to-token-btn" class="token-select-btn">
-                            <img src="assets/img/eth.png" alt="ETH" class="token-img"> ETH
+                            <img src="/assets/img/eth.png" alt="ETH" class="token-img"> ETH
                         </button>
                     </div>
                 </div>
@@ -84,7 +85,7 @@
                     <button class="swap-info-toggle">
                         <span id="estimated-output">~0.0 ETH</span>
                         <span class="gas-fee">
-                            <img src="assets/img/gas.png" alt="Gas Icon" class="gas-icon">
+                            <img src="/assets/img/gas.png" alt="Gas Icon" class="gas-icon">
                             <span id="gas-fee-value">$0.00</span>
                         </span>
                         <span class="chevron">▼</span>
@@ -115,33 +116,67 @@
         </div>
 
         <!-- Liquidity Pools Tab -->
-        <div id="pool" class="tab-content">
-            <div class="swap-box">
-                <h2>Add Liquidity</h2>
-                <div class="swap-input-box">
-                    <label>Token A</label>
-                    <div class="input-wrapper">
-                        <input type="number" id="pool-amount-a" placeholder="0.0" step="0.01">
-                        <button id="pool-token-a-btn" class="token-select-btn">
-                            <img src="assets/img/eth.png" alt="ETH" class="token-img"> ETH
-                        </button>
-                    </div>
-                </div>
-                <div class="plus-sign">+</div>
-                <div class="swap-input-box">
-                    <label>Token B</label>
-                    <div class="input-wrapper">
-                        <input type="number" id="pool-amount-b" placeholder="0.0" step="0.01">
-                        <button id="pool-token-b-btn" class="token-select-btn">
-                            <img src="assets/img/usdt.png" alt="USDT" class="token-img"> USDT
-                        </button>
-                    </div>
-                </div>
-                <button id="add-liquidity-btn">Add Liquidity</button>
+<div id="pool" class="tab-content">
+    <div class="swap-box">
+        <h2>Add Liquidity</h2>
+        <div class="swap-input-box">
+            <label>Input</label>
+            <div class="input-wrapper">
+                <input type="number" id="pool-amount-a" placeholder="0.0" step="0.01">
+                <button id="pool-token-a-btn" class="token-select-btn">
+                    <img src="/assets/img/eth.png" alt="ETH" class="token-img"> ETH
+                </button>
+            </div>
+            <div class="balance-info pool-a-balance-info">
+                <span>Balance: </span><span id="pool-a-balance">0.0</span>
+            </div>
+        </div>
+        <div class="plus-sign">+</div>
+        <div class="swap-input-box">
+            <label>Input</label>
+            <div class="input-wrapper">
+                <input type="number" id="pool-amount-b" placeholder="0.0" step="0.01">
+                <button id="pool-token-b-btn" class="token-select-btn">
+                    <img src="/assets/img/usdt.png" alt="USDT" class="token-img"> USDT
+                </button>
+            </div>
+            <div class="balance-info pool-b-balance-info">
+                <span>Balance: </span><span id="pool-b-balance">0.0</span>
+            </div>
+        </div>
+        
+        <!-- Prices and Pool Share -->
+        <div class="pool-info" id="pool-info">
+            <h3>Prices and Pool Share</h3>
+            <div class="pool-info-item">
+                <span id="price-a-per-b">0</span>
+                <span id="label-a-per-b">ETH per USDT</span>
+            </div>
+            <div class="pool-info-item">
+                <span id="price-b-per-a">0</span>
+                <span id="label-b-per-a">USDT per ETH</span>
+            </div>
+            <div class="pool-info-item">
+                <span id="pool-share">0%</span>
+                <span>Share of Pool</span>
+            </div>
+        </div>
 
-                <h2>Your Liquidity</h2>
-                <div id="liquidity-list"></div>
-                <button id="remove-liquidity-btn" disabled>Remove Liquidity</button>
+        <button id="approve-a-btn" style="display: none;" disabled>Approve ETH</button>
+        <button id="approve-b-btn" style="display: none;" disabled>Approve USDT</button>
+        <button id="add-liquidity-btn" disabled>Connect Wallet</button>
+
+        <h2>Your Liquidity</h2>
+        <div id="liquidity-list"></div>
+        <button id="remove-liquidity-btn" disabled>Remove Liquidity</button>
+    </div>
+</div>
+
+        <!-- History Tab -->
+        <div id="history" class="tab-content">
+            <div class="swap-box">
+                <h2>Swap History</h2>
+                <div id="swap-history-list"></div>
             </div>
         </div>
     </div>
@@ -151,10 +186,10 @@
     <div id="connect-wallet-modal">
         <h2>Connect Wallet</h2>
         <div class="wallet-option" data-wallet="metamask">
-            <img src="assets/img/metamask.png" alt="MetaMask"> MetaMask
+            <img src="/assets/img/metamask.png" alt="MetaMask"> MetaMask
         </div>
         <div class="wallet-option" data-wallet="okx">
-            <img src="assets/img/okx.png" alt="OKX Wallet"> OKX Wallet
+            <img src="/assets/img/okx.png" alt="OKX Wallet"> OKX Wallet
         </div>
     </div>
 
@@ -190,6 +225,6 @@
     </footer>
 
     <script src="https://cdn.jsdelivr.net/npm/web3@1.7.0/dist/web3.min.js"></script>
-    <script src="assets/js/connect.js"></script>
+    <script src="/assets/js/connect.js"></script>
 </body>
 </html>
