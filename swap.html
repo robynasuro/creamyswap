@@ -13,7 +13,24 @@
             CreamySwap
         </a>
         <div class="nav-right">
+            <div class="chain-indicator">
+                <span id="chain-status">Tea Sepolia</span>
+                <span id="chain-dot" class="dot offline"></span>
+            </div>
             <button id="connect-wallet-btn">Connect Wallet</button>
+            <button class="settings-btn">⚙️</button>
+            <div class="slippage-popup" id="slippage-popup">
+                <h3>Settings</h3>
+                <label>Slippage Tolerance</label>
+                <div class="slippage-options">
+                    <button class="slippage-btn active" data-slippage="0.5">0.5%</button>
+                    <button class="slippage-btn" data-slippage="1">1%</button>
+                    <button class="slippage-btn" data-slippage="3">3%</button>
+                </div>
+                <div class="slippage-custom">
+                    <input type="number" placeholder="Custom %" step="0.1">
+                </div>
+            </div>
             <label class="switch">
                 <input type="checkbox" id="theme-toggle">
                 <span class="slider"></span>
@@ -21,83 +38,110 @@
         </div>
     </nav>
 
+    <div class="tabs">
+        <button class="tab-btn active" data-tab="swap">Swap</button>
+        <button class="tab-btn" data-tab="pool">Liquidity Pools</button>
+    </div>
+
     <div class="container">
-        <div class="swap-box">
-            <div class="swap-header">
-                <span>Swap</span>
-                <button class="settings-btn">⚙️</button>
-                <div class="slippage-popup" id="slippage-popup">
-                    <h3>Settings</h3>
-                    <label>Slippage Tolerance</label>
-                    <div class="slippage-options">
-                        <button class="slippage-btn active" data-slippage="0.5">0.5%</button>
-                        <button class="slippage-btn" data-slippage="1">1%</button>
-                        <button class="slippage-btn" data-slippage="3">3%</button>
+        <!-- Swap Tab -->
+        <div id="swap" class="tab-content active">
+            <div class="swap-box">
+                <div class="swap-header">
+                    <span>Swap</span>
+                </div>
+
+                <!-- From -->
+                <div class="swap-input-box">
+                    <label for="from-amount">From</label>
+                    <div class="input-wrapper">
+                        <input type="number" id="from-amount" placeholder="0.0">
+                        <button id="from-token-btn" class="token-select-btn">
+                            <img src="assets/img/tea.png" alt="TEA" class="token-img"> TEA
+                        </button>
                     </div>
-                    <div class="slippage-custom">
-                        <input type="number" placeholder="Custom %" step="0.1">
+                    <div class="balance-info">
+                        <span>Balance: </span><span id="from-balance">0.0</span>
+                        <button id="max-btn" class="max-btn">Max</button>
                     </div>
                 </div>
-            </div>
 
-            <!-- From -->
-            <div class="swap-input-box">
-                <label for="from-amount">From</label>
-                <div class="input-wrapper">
-                    <input type="number" id="from-amount" placeholder="0.0">
-                    <button id="from-token-btn" class="token-select-btn">
-                        <img src="assets/img/tea.png" alt="TEA" class="token-img"> TEA
+                <button class="swap-arrow">↓</button>
+
+                <!-- To -->
+                <div class="swap-input-box">
+                    <label for="to-amount">To (estimated)</label>
+                    <div class="input-wrapper">
+                        <input type="number" id="to-amount" placeholder="0.0" readonly>
+                        <button id="to-token-btn" class="token-select-btn">
+                            <img src="assets/img/eth.png" alt="ETH" class="token-img"> ETH
+                        </button>
+                    </div>
+                </div>
+
+                <div class="swap-info">
+                    <button class="swap-info-toggle">
+                        <span id="estimated-output">~0.0 ETH</span>
+                        <span class="gas-fee">
+                            <img src="assets/img/gas.png" alt="Gas Icon" class="gas-icon">
+                            <span id="gas-fee-value">$0.00</span>
+                        </span>
+                        <span class="chevron">▼</span>
                     </button>
+                    <div class="swap-info-details" id="swap-info-details">
+                        <div class="swap-info-item">
+                            <span>Minimum Received</span>
+                            <span id="minimum-received">0.0 ETH</span>
+                        </div>
+                        <div class="swap-info-item">
+                            <span>Price Impact</span>
+                            <span id="price-impact">0%</span>
+                        </div>
+                        <div class="swap-info-item">
+                            <span>Network Cost</span>
+                            <span id="network-cost">$0.00</span>
+                        </div>
+                        <div class="swap-info-item">
+                            <span>Max Slippage</span>
+                            <span id="max-slippage">Auto 0.5%</span>
+                        </div>
+                    </div>
                 </div>
-                <div class="balance-info">
-                    <span>Balance: </span><span id="from-balance">0.0</span>
-                    <button id="max-btn" class="max-btn">Max</button>
-                </div>
+
+                <button id="swap-btn">Swap</button>
+                <button id="faucet-btn">Get Faucet</button>
             </div>
+        </div>
 
-            <button class="swap-arrow">↓</button>
-
-            <!-- To -->
-            <div class="swap-input-box">
-                <label for="to-amount">To</label>
-                <div class="input-wrapper">
-                    <input type="number" id="to-amount" placeholder="0.0" readonly>
-                    <button id="to-token-btn" class="token-select-btn">
-                        <img src="assets/img/eth.png" alt="ETH" class="token-img"> ETH
-                    </button>
-                </div>
-            </div>
-
-            <div class="swap-info">
-                <button class="swap-info-toggle">
-                    <span id="estimated-output">~0.0 ETH</span>
-                    <span class="gas-fee">
-                        <img src="assets/img/gas.png" alt="Gas Icon" class="gas-icon">
-                        <span id="gas-fee-value">$0.00</span>
-                    </span>
-                    <span class="chevron">▼</span>
-                </button>
-                <div class="swap-info-details" id="swap-info-details">
-                    <div class="swap-info-item">
-                        <span>Minimum Received</span>
-                        <span id="minimum-received">0.0 ETH</span>
-                    </div>
-                    <div class="swap-info-item">
-                        <span>Price Impact</span>
-                        <span id="price-impact">0%</span>
-                    </div>
-                    <div class="swap-info-item">
-                        <span>Network Cost</span>
-                        <span id="network-cost">$0.00</span>
-                    </div>
-                    <div class="swap-info-item">
-                        <span>Max Slippage</span>
-                        <span id="max-slippage">Auto 0.5%</span>
+        <!-- Liquidity Pools Tab -->
+        <div id="pool" class="tab-content">
+            <div class="swap-box">
+                <h2>Add Liquidity</h2>
+                <div class="swap-input-box">
+                    <label>Token A</label>
+                    <div class="input-wrapper">
+                        <input type="number" id="pool-amount-a" placeholder="0.0">
+                        <button id="pool-token-a-btn" class="token-select-btn">
+                            <img src="assets/img/eth.png" alt="ETH" class="token-img"> ETH
+                        </button>
                     </div>
                 </div>
-            </div>
+                <div class="plus-sign">+</div>
+                <div class="swap-input-box">
+                    <label>Token B</label>
+                    <div class="input-wrapper">
+                        <input type="number" id="pool-amount-b" placeholder="0.0">
+                        <button id="pool-token-b-btn" class="token-select-btn">
+                            <img src="assets/img/usdt.png" alt="USDT" class="token-img"> USDT
+                        </button>
+                    </div>
+                </div>
+                <button id="add-liquidity-btn">Add Liquidity</button>
 
-            <button id="swap-btn">Swap</button>
+                <h2>Your Liquidity</h2>
+                <div id="liquidity-list"></div>
+                <button id="remove-liquidity-btn" disabled>Remove Liquidity</button>
+            </div>
         </div>
     </div>
 
@@ -126,13 +170,13 @@
             <button id="add-custom-token-btn">Add</button>
         </div>
         <div id="token-list">
-            <div class="token-option" data-token="TEA" data-address="native">
+            <div class="token-option" data-token="TEA" data-address="0x0000000000000000000000000000000000000000">
                 <img src="assets/img/tea.png" alt="TEA"> TEA
             </div>
-            <div class="token-option" data-token="ETH" data-address="0xA8AA9806De2A5b8E8C9C81DA7accE4A883f66476">
+            <div class="token-option" data-token="ETH" data-address="0x8339581846eDf61dc147966E807e48763dCb09E8">
                 <img src="assets/img/eth.png" alt="ETH"> ETH
             </div>
-            <div class="token-option" data-token="USDT" data-address="0x2a215664473a03A7bE43eEa7aecB99D3142cf06f">
+            <div class="token-option" data-token="USDT" data-address="0x9e1C4327ee92248C6b8B76d175d20B8F5cf1b168">
                 <img src="assets/img/usdt.png" alt="USDT"> USDT
             </div>
         </div>
@@ -142,8 +186,8 @@
     <div id="success-modal" class="modal">
         <div class="modal-content">
             <span id="close-modal" class="close">×</span>
-            <h2>Swap Successful!</h2>
-            <p id="success-message">Transaction completed. Check your wallet!</p>
+            <h2>Success!</h2>
+            <p id="success-message">Transaction completed.</p>
             <a id="tx-link" href="#" target="_blank" class="tx-link">View on Explorer</a>
         </div>
     </div>
