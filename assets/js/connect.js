@@ -38,9 +38,17 @@ const poolAmountAInput = document.getElementById('pool-amount-a');
 const poolAmountBInput = document.getElementById('pool-amount-b');
 const poolTokenABtn = document.getElementById('pool-token-a-btn');
 const poolTokenBBtn = document.getElementById('pool-token-b-btn');
+const poolABalanceSpan = document.getElementById('pool-a-balance');
+const poolBBalanceSpan = document.getElementById('pool-b-balance');
+const approveABtn = document.getElementById('approve-a-btn');
+const approveBBtn = document.getElementById('approve-b-btn');
 const addLiquidityBtn = document.getElementById('add-liquidity-btn');
 const liquidityList = document.getElementById('liquidity-list');
 const removeLiquidityBtn = document.getElementById('remove-liquidity-btn');
+const poolInfo = document.getElementById('pool-info');
+
+// History Elements
+const swapHistoryList = document.getElementById('swap-history-list');
 
 // Faucet
 const faucetBtn = document.getElementById('faucet-btn');
@@ -50,6 +58,12 @@ const tokenSelectModal = document.getElementById('token-select-modal');
 const tokenList = document.getElementById('token-list');
 const customTokenAddressInput = document.getElementById('custom-token-address');
 const addCustomTokenBtn = document.getElementById('add-custom-token-btn');
+
+// Success Modal
+const successModal = document.getElementById('success-modal');
+const successMessage = document.getElementById('success-message');
+const txLink = document.getElementById('tx-link');
+const closeModal = document.getElementById('close-modal');
 
 // Contract setup
 const swapContractAddress = "0xF4c54E267B56066731B6BA27F2b7b8e9Fe087144";
@@ -61,17 +75,13 @@ const swapContractAbi = [
         "inputs": [
             {"internalType": "address", "name": "tokenA", "type": "address"},
             {"internalType": "address", "name": "tokenB", "type": "address"},
-            {"internalType": "uint256", "name": "amountADesired", "type": "uint256"},
-            {"internalType": "uint256", "name": "amountBDesired", "type": "uint256"},
+            {"internalType": "uint256", "name": "amountA", "type": "uint256"},
+            {"internalType": "uint256", "name": "amountB", "type": "uint256"},
             {"internalType": "uint256", "name": "amountAMin", "type": "uint256"},
             {"internalType": "uint256", "name": "amountBMin", "type": "uint256"}
         ],
         "name": "addLiquidity",
-        "outputs": [
-            {"internalType": "uint256", "name": "amountA", "type": "uint256"},
-            {"internalType": "uint256", "name": "amountB", "type": "uint256"},
-            {"internalType": "uint256", "name": "liquidity", "type": "uint256"}
-        ],
+        "outputs": [],
         "stateMutability": "payable",
         "type": "function"
     },
@@ -84,10 +94,7 @@ const swapContractAbi = [
             {"internalType": "uint256", "name": "amountBMin", "type": "uint256"}
         ],
         "name": "removeLiquidity",
-        "outputs": [
-            {"internalType": "uint256", "name": "amountA", "type": "uint256"},
-            {"internalType": "uint256", "name": "amountB", "type": "uint256"}
-        ],
+        "outputs": [],
         "stateMutability": "nonpayable",
         "type": "function"
     },
@@ -136,7 +143,6 @@ const swapContractAbi = [
     }
 ];
 
-// Faucet ABI (CreamyFaucet)
 const faucetAbi = [
     {
         "inputs": [],
@@ -144,42 +150,22 @@ const faucetAbi = [
         "outputs": [],
         "stateMutability": "nonpayable",
         "type": "function"
-    },
-    {
-        "anonymous": false,
-        "inputs": [
-            {"indexed": true, "internalType": "address", "name": "user", "type": "address"},
-            {"indexed": false, "internalType": "uint256", "name": "ethAmount", "type": "uint256"},
-            {"indexed": false, "internalType": "uint256", "name": "usdtAmount", "type": "uint256"}
-        ],
-        "name": "Claimed",
-        "type": "event"
     }
 ];
 
 const erc20Abi = [
     {
         "constant": true,
-        "inputs": [],
-        "name": "symbol",
-        "outputs": [{"name": "", "type": "string"}],
-        "stateMutability": "view",
-        "type": "function"
-    },
-    {
-        "constant": true,
-        "inputs": [],
-        "name": "decimals",
-        "outputs": [{"name": "", "type": "uint8"}],
-        "stateMutability": "view",
-        "type": "function"
-    },
-    {
-        "constant": true,
         "inputs": [{"name": "_owner", "type": "address"}],
         "name": "balanceOf",
         "outputs": [{"name": "balance", "type": "uint256"}],
-        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "constant": true,
+        "inputs": [],
+        "name": "symbol",
+        "outputs": [{"name": "", "type": "string"}],
         "type": "function"
     },
     {
@@ -189,8 +175,7 @@ const erc20Abi = [
             {"name": "_value", "type": "uint256"}
         ],
         "name": "approve",
-        "outputs": [{"name": "", "type": "bool"}],
-        "stateMutability": "nonpayable",
+        "outputs": [{"name": "success", "type": "bool"}],
         "type": "function"
     },
     {
@@ -201,7 +186,6 @@ const erc20Abi = [
         ],
         "name": "allowance",
         "outputs": [{"name": "", "type": "uint256"}],
-        "stateMutability": "view",
         "type": "function"
     }
 ];
@@ -214,9 +198,14 @@ let toToken = { name: 'ETH', address: '0x8339581846eDf61dc147966E807e48763dCb09E
 let poolTokenA = { name: 'ETH', address: '0x8339581846eDf61dc147966E807e48763dCb09E8' };
 let poolTokenB = { name: 'USDT', address: '0x9e1C4327ee92248C6b8B76d175d20B8F5cf1b168' };
 let fromBalance = 0;
+let poolABalance = 0;
+let poolBBalance = 0;
 let slippageTolerance = 0.5;
 
 const TEA_SEPOLIA_CHAIN_ID = '0x27ea'; // 10218 in hex
+
+// Swap History
+let swapHistory = JSON.parse(localStorage.getItem('swapHistory')) || [];
 
 // Tab Switching
 document.querySelectorAll('.tab-btn').forEach(btn => {
@@ -225,7 +214,11 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
         document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
         btn.classList.add('active');
         document.getElementById(btn.dataset.tab).classList.add('active');
-        if (btn.dataset.tab === 'pool') updateLiquidityList();
+        if (btn.dataset.tab === 'pool') {
+            updateLiquidityList();
+            updatePoolBalancesAndInfo();
+        }
+        if (btn.dataset.tab === 'history') renderSwapHistory();
     });
 });
 
@@ -264,7 +257,11 @@ const updateChainStatus = async () => {
 
 // Update balance di input "From"
 const updateFromBalance = async () => {
-    if (!currentProvider) return;
+    if (!currentProvider) {
+        fromBalanceSpan.textContent = '0.0';
+        balanceInfo.style.display = 'none';
+        return;
+    }
     const web3 = new Web3(currentProvider);
     const accounts = await web3.eth.getAccounts();
     if (!accounts || accounts.length === 0) return;
@@ -274,6 +271,31 @@ const updateFromBalance = async () => {
     fromBalanceSpan.textContent = `${parseFloat(fromBalance).toFixed(4)}`;
     balanceInfo.style.display = 'flex';
     await updateSwapButtonState();
+};
+
+// Update balance di pool
+const updatePoolBalancesAndInfo = async () => {
+    if (!currentProvider) {
+        poolABalanceSpan.textContent = '0.0';
+        poolBBalanceSpan.textContent = '0.0';
+        document.querySelector('.pool-a-balance-info').style.display = 'none';
+        document.querySelector('.pool-b-balance-info').style.display = 'none';
+        return;
+    }
+    const web3 = new Web3(currentProvider);
+    const accounts = await web3.eth.getAccounts();
+    if (!accounts || accounts.length === 0) return;
+
+    const address = accounts[0];
+    poolABalance = await getTokenBalance(web3, address, poolTokenA);
+    poolBBalance = await getTokenBalance(web3, address, poolTokenB);
+    poolABalanceSpan.textContent = `${parseFloat(poolABalance).toFixed(4)}`;
+    poolBBalanceSpan.textContent = `${parseFloat(poolBBalance).toFixed(4)}`;
+    document.querySelector('.pool-a-balance-info').style.display = 'flex';
+    document.querySelector('.pool-b-balance-info').style.display = 'flex';
+
+    await updateLiquidityButtonState();
+    await updatePoolInfo();
 };
 
 // Update estimasi output swap
@@ -293,7 +315,6 @@ const updateEstimatedOutput = async () => {
     const swapContract = new web3.eth.Contract(swapContractAbi, swapContractAddress);
     let reserveIn, reserveOut;
     try {
-        // Cek reserve dua arah
         reserveIn = await swapContract.methods.reserves(fromToken.address, toToken.address).call();
         reserveOut = await swapContract.methods.reserves(toToken.address, fromToken.address).call();
         if (reserveIn == 0 || reserveOut == 0) {
@@ -314,7 +335,7 @@ const updateEstimatedOutput = async () => {
     }
 
     const amountIn = web3.utils.toWei(fromAmount.toString(), 'ether');
-    const amountInWithFee = BigInt(amountIn) * BigInt(997) / BigInt(1000); // 0.3% fee
+    const amountInWithFee = BigInt(amountIn) * BigInt(997) / BigInt(1000);
     const numerator = BigInt(reserveOut) * amountInWithFee;
     const denominator = BigInt(reserveIn) * BigInt(1000) + amountInWithFee;
     const amountOut = numerator / denominator;
@@ -332,7 +353,7 @@ const updateEstimatedOutput = async () => {
     const gasPrice = await web3.eth.getGasPrice();
     const gasEstimate = 100000;
     const gasFeeInEth = web3.utils.fromWei((gasPrice * gasEstimate).toString(), 'ether');
-    const gasFeeInUsd = gasFeeInEth * 2000; // Asumsi 1 ETH = $2000
+    const gasFeeInUsd = gasFeeInEth * 2000;
     document.getElementById('gas-fee-value').textContent = `$${gasFeeInUsd.toFixed(2)}`;
     document.getElementById('network-cost').textContent = `$${gasFeeInUsd.toFixed(2)}`;
 };
@@ -351,14 +372,39 @@ const updateLiquidityEstimate = async () => {
     const reserveB = await swapContract.methods.reserves(poolTokenB.address, poolTokenA.address).call();
 
     if (reserveA == 0 && reserveB == 0) {
-        poolAmountBInput.value = amountA.toFixed(6); // Initial 1:1 if no liquidity
+        poolAmountBInput.value = amountA.toFixed(6);
     } else {
         const amountB = (amountA * Number(reserveB)) / Number(reserveA);
         poolAmountBInput.value = amountB.toFixed(6);
     }
+    await updatePoolInfo();
 };
 
-// Debounce function biar update ga berat
+// Update Pool Info (Prices and Pool Share)
+const updatePoolInfo = async () => {
+    if (!currentProvider) return;
+    const web3 = new Web3(currentProvider);
+    const swapContract = new web3.eth.Contract(swapContractAbi, swapContractAddress);
+
+    const reserveA = await swapContract.methods.reserves(poolTokenA.address, poolTokenB.address).call();
+    const reserveB = await swapContract.methods.reserves(poolTokenB.address, poolTokenA.address).call();
+    const totalSupply = await swapContract.methods.totalSupply(poolTokenA.address, poolTokenB.address).call();
+
+    const amountA = parseFloat(poolAmountAInput.value) || 0;
+    const amountB = parseFloat(poolAmountBInput.value) || 0;
+
+    const priceAPerB = reserveA > 0 ? (Number(reserveB) / Number(reserveA)).toFixed(6) : '0';
+    const priceBPerA = reserveB > 0 ? (Number(reserveA) / Number(reserveB)).toFixed(6) : '0';
+    const shareOfPool = totalSupply > 0 && amountA > 0 ? ((amountA * 1e18 / (Number(reserveA) + amountA * 1e18)) * 100).toFixed(2) : '0';
+
+    document.getElementById('price-a-per-b').textContent = priceAPerB;
+    document.getElementById('label-a-per-b').textContent = `${poolTokenA.name} per ${poolTokenB.name}`;
+    document.getElementById('price-b-per-a').textContent = priceBPerA;
+    document.getElementById('label-b-per-a').textContent = `${poolTokenB.name} per ${poolTokenA.name}`;
+    document.getElementById('pool-share').textContent = `${shareOfPool}%`;
+};
+
+// Debounce function
 const debounce = (func, wait) => {
     let timeout;
     return (...args) => {
@@ -367,7 +413,7 @@ const debounce = (func, wait) => {
     };
 };
 
-// Fungsi cek allowance dan update tombol Approve/Swap
+// Update tombol Swap/Approve
 const updateSwapButtonState = async () => {
     if (!currentProvider) {
         swapBtn.textContent = 'Connect Wallet';
@@ -378,7 +424,12 @@ const updateSwapButtonState = async () => {
 
     const web3 = new Web3(currentProvider);
     const accounts = await web3.eth.getAccounts();
-    if (!accounts || accounts.length === 0) return;
+    if (!accounts || accounts.length === 0) {
+        swapBtn.textContent = 'Connect Wallet';
+        swapBtn.dataset.action = 'connect';
+        swapBtn.disabled = false;
+        return;
+    }
 
     const fromAmount = parseFloat(fromAmountInput.value) || 0;
     if (fromAmount <= 0) {
@@ -422,13 +473,98 @@ const updateSwapButtonState = async () => {
     }
 };
 
-// Event listener buat input "From" dan "Pool A" dengan debounce
+// Update tombol Approve/Add Liquidity
+const updateLiquidityButtonState = async () => {
+    if (!currentProvider) {
+        approveABtn.style.display = 'none';
+        approveBBtn.style.display = 'none';
+        addLiquidityBtn.textContent = 'Connect Wallet';
+        addLiquidityBtn.dataset.action = 'connect';
+        addLiquidityBtn.disabled = false;
+        return;
+    }
+
+    const web3 = new Web3(currentProvider);
+    const accounts = await web3.eth.getAccounts();
+    if (!accounts || accounts.length === 0) {
+        approveABtn.style.display = 'none';
+        approveBBtn.style.display = 'none';
+        addLiquidityBtn.textContent = 'Connect Wallet';
+        addLiquidityBtn.dataset.action = 'connect';
+        addLiquidityBtn.disabled = false;
+        return;
+    }
+
+    const amountA = parseFloat(poolAmountAInput.value) || 0;
+    const amountB = parseFloat(poolAmountBInput.value) || 0;
+
+    if (amountA <= 0 || amountB <= 0) {
+        approveABtn.style.display = 'none';
+        approveBBtn.style.display = 'none';
+        addLiquidityBtn.textContent = 'Enter an amount';
+        addLiquidityBtn.disabled = true;
+        delete addLiquidityBtn.dataset.action; // Hapus action kalo ga valid
+        return;
+    }
+
+    if (amountA > parseFloat(poolABalance) || amountB > parseFloat(poolBBalance)) {
+        approveABtn.style.display = 'none';
+        approveBBtn.style.display = 'none';
+        addLiquidityBtn.textContent = 'Insufficient Balance';
+        addLiquidityBtn.disabled = true;
+        delete addLiquidityBtn.dataset.action; // Hapus action kalo ga valid
+        return;
+    }
+
+    let needApproveA = false;
+    let needApproveB = false;
+
+    if (poolTokenA.address !== '0x0000000000000000000000000000000000000000') {
+        const amountAWei = web3.utils.toWei(amountA.toString(), 'ether');
+        const tokenAContract = new web3.eth.Contract(erc20Abi, poolTokenA.address);
+        const allowanceA = await tokenAContract.methods.allowance(accounts[0], swapContractAddress).call();
+        needApproveA = BigInt(allowanceA) < BigInt(amountAWei);
+        approveABtn.textContent = `Approve ${poolTokenA.name}`;
+        approveABtn.style.display = needApproveA ? 'block' : 'none';
+        approveABtn.disabled = false;
+    } else {
+        approveABtn.style.display = 'none';
+    }
+
+    if (poolTokenB.address !== '0x0000000000000000000000000000000000000000') {
+        const amountBWei = web3.utils.toWei(amountB.toString(), 'ether');
+        const tokenBContract = new web3.eth.Contract(erc20Abi, poolTokenB.address);
+        const allowanceB = await tokenBContract.methods.allowance(accounts[0], swapContractAddress).call();
+        needApproveB = BigInt(allowanceB) < BigInt(amountBWei);
+        approveBBtn.textContent = `Approve ${poolTokenB.name}`;
+        approveBBtn.style.display = needApproveB ? 'block' : 'none';
+        approveBBtn.disabled = false;
+    } else {
+        approveBBtn.style.display = 'none';
+    }
+
+    addLiquidityBtn.textContent = 'Add Liquidity';
+    addLiquidityBtn.disabled = needApproveA || needApproveB;
+    addLiquidityBtn.style.display = 'block';
+    if (!needApproveA && !needApproveB) {
+        addLiquidityBtn.dataset.action = 'add'; // Set action ke 'add' kalo udah siap
+    } else {
+        delete addLiquidityBtn.dataset.action; // Hapus action kalo masih perlu approve
+    }
+};
+
+// Event listener input
 fromAmountInput.addEventListener('input', debounce(async () => {
     await updateEstimatedOutput();
     await updateSwapButtonState();
 }, 300));
 
-poolAmountAInput.addEventListener('input', debounce(updateLiquidityEstimate, 300));
+poolAmountAInput.addEventListener('input', debounce(async () => {
+    await updateLiquidityEstimate();
+    await updateLiquidityButtonState();
+}, 300));
+
+poolAmountBInput.addEventListener('input', debounce(updateLiquidityButtonState, 300));
 
 // Token Selection
 let currentInput = null;
@@ -464,13 +600,13 @@ poolTokenBBtn.addEventListener('click', () => {
 const renderTokenList = () => {
     tokenList.innerHTML = `
         <div class="token-option" data-token="TEA" data-address="0x0000000000000000000000000000000000000000">
-            <img src="assets/img/tea.png" alt="TEA"> TEA
+            <img src="/assets/img/tea.png" alt="TEA"> TEA
         </div>
         <div class="token-option" data-token="ETH" data-address="0x8339581846eDf61dc147966E807e48763dCb09E8">
-            <img src="assets/img/eth.png" alt="ETH"> ETH
+            <img src="/assets/img/eth.png" alt="ETH"> ETH
         </div>
         <div class="token-option" data-token="USDT" data-address="0x9e1C4327ee92248C6b8B76d175d20B8F5cf1b168">
-            <img src="assets/img/usdt.png" alt="USDT"> USDT
+            <img src="/assets/img/usdt.png" alt="USDT"> USDT
         </div>
     `;
     tokenList.querySelectorAll('.token-option').forEach(option => {
@@ -492,13 +628,13 @@ const selectToken = async (option) => {
     } else if (currentInput === 'poolA') {
         btn = poolTokenABtn;
         poolTokenA = { name: token, address };
-        await updateLiquidityEstimate();
+        await updatePoolBalancesAndInfo();
     } else if (currentInput === 'poolB') {
         btn = poolTokenBBtn;
         poolTokenB = { name: token, address };
-        await updateLiquidityEstimate();
+        await updatePoolBalancesAndInfo();
     }
-    btn.innerHTML = `<img src="assets/img/${token.toLowerCase()}.png" alt="${token}" class="token-img"> ${token}`;
+    btn.innerHTML = `<img src="/assets/img/${token.toLowerCase()}.png" alt="${token}" class="token-img"> ${token}`;
     tokenSelectModal.style.display = 'none';
     overlay.style.display = 'none';
     await updateEstimatedOutput();
@@ -525,7 +661,7 @@ addCustomTokenBtn.addEventListener('click', async () => {
         tokenOption.className = 'token-option';
         tokenOption.setAttribute('data-token', symbol);
         tokenOption.setAttribute('data-address', tokenAddress);
-        tokenOption.innerHTML = `<img src="assets/img/default-token.png" alt="${symbol}"> ${symbol}`;
+        tokenOption.innerHTML = `<img src="/assets/img/default-token.png" alt="${symbol}"> ${symbol}`;
         tokenList.appendChild(tokenOption);
         tokenOption.addEventListener('click', () => selectToken(tokenOption));
         customTokenAddressInput.value = '';
@@ -551,8 +687,8 @@ swapArrow.addEventListener('click', async () => {
     fromToken = toToken;
     toToken = tempToken;
 
-    fromTokenBtn.innerHTML = `<img src="assets/img/${fromToken.name.toLowerCase()}.png" alt="${fromToken.name}" class="token-img"> ${fromToken.name}`;
-    toTokenBtn.innerHTML = `<img src="assets/img/${toToken.name.toLowerCase()}.png" alt="${toToken.name}" class="token-img"> ${toToken.name}`;
+    fromTokenBtn.innerHTML = `<img src="/assets/img/${fromToken.name.toLowerCase()}.png" alt="${fromToken.name}" class="token-img"> ${fromToken.name}`;
+    toTokenBtn.innerHTML = `<img src="/assets/img/${toToken.name.toLowerCase()}.png" alt="${toToken.name}" class="token-img"> ${toToken.name}`;
 
     fromAmountInput.value = toAmountInput.value;
     toAmountInput.value = tempAmount;
@@ -580,7 +716,7 @@ slippageButtons.forEach(btn => {
 
 // Tombol Swap/Approve
 swapBtn.addEventListener('click', async () => {
-    if (!currentProvider && swapBtn.dataset.action === 'connect') {
+    if (swapBtn.dataset.action === 'connect') {
         connectWalletModal.style.display = 'block';
         overlay.style.display = 'block';
         return;
@@ -658,8 +794,12 @@ swapBtn.addEventListener('click', async () => {
             gas: 300000
         });
 
-        showSuccessModal(`Swapped ${fromAmount} ${fromToken.name} to ${toToken.name}!`, tx.transactionHash);
+        const toAmount = web3.utils.fromWei(amountOut.toString(), 'ether');
+        addToSwapHistory('swap', fromAmount, fromToken.name, toAmount, toToken.name, tx.transactionHash);
+        showSuccessModal(`Swapped ${fromAmount} ${fromToken.name} to ${toAmount} ${toToken.name}!`, tx.transactionHash);
         await updateFromBalance();
+        fromAmountInput.value = '';
+        toAmountInput.value = '';
         swapBtn.textContent = 'Swap';
         swapBtn.disabled = false;
     } catch (error) {
@@ -731,15 +871,18 @@ walletOptions.forEach(option => {
                 connectWalletBtn.textContent = formatAddress(accounts[0]);
                 await updateChainStatus();
                 await updateFromBalance();
+                await updatePoolBalancesAndInfo();
 
                 provider.on('chainChanged', () => {
                     updateChainStatus();
                     updateFromBalance();
+                    updatePoolBalancesAndInfo();
                 });
                 provider.on('accountsChanged', (accounts) => {
                     if (accounts.length > 0) {
                         connectWalletBtn.textContent = formatAddress(accounts[0]);
                         updateFromBalance();
+                        updatePoolBalancesAndInfo();
                     } else {
                         disconnectWallet();
                     }
@@ -758,15 +901,18 @@ walletOptions.forEach(option => {
                 connectWalletBtn.textContent = formatAddress(accounts[0]);
                 await updateChainStatus();
                 await updateFromBalance();
+                await updatePoolBalancesAndInfo();
 
                 provider.on('chainChanged', () => {
                     updateChainStatus();
                     updateFromBalance();
+                    updatePoolBalancesAndInfo();
                 });
                 provider.on('accountsChanged', (accounts) => {
                     if (accounts.length > 0) {
                         connectWalletBtn.textContent = formatAddress(accounts[0]);
                         updateFromBalance();
+                        updatePoolBalancesAndInfo();
                     } else {
                         disconnectWallet();
                     }
@@ -808,9 +954,13 @@ const disconnectWallet = () => {
     assetModal.style.display = 'none';
     overlay.style.display = 'none';
     balanceInfo.style.display = 'none';
+    document.querySelector('.pool-a-balance-info').style.display = 'none';
+    document.querySelector('.pool-b-balance-info').style.display = 'none';
     chainDot.classList.remove('online');
     chainDot.classList.add('offline');
     chainStatus.textContent = 'Tea Sepolia';
+    updateSwapButtonState();
+    updateLiquidityButtonState();
 };
 
 disconnectWalletBtn.addEventListener('click', disconnectWallet);
@@ -839,6 +989,7 @@ faucetBtn.addEventListener('click', async () => {
         const tx = await faucetContract.methods.claim().send({ from: accounts[0], gas: 200000 });
         showSuccessModal('Claimed 10 ETH and 10 USDT!', tx.transactionHash);
         await updateFromBalance();
+        await updatePoolBalancesAndInfo();
     } catch (error) {
         console.error('Faucet error:', error);
         alert(`Faucet failed! ${error.message || 'Might be due to cooldown or insufficient faucet balance.'}`);
@@ -848,8 +999,59 @@ faucetBtn.addEventListener('click', async () => {
     }
 });
 
+// Approve Token A
+approveABtn.addEventListener('click', async () => {
+    if (!currentProvider) return;
+    const web3 = new Web3(currentProvider);
+    const accounts = await web3.eth.getAccounts();
+    const amountA = parseFloat(poolAmountAInput.value) || 0;
+    const amountAWei = web3.utils.toWei(amountA.toString(), 'ether');
+
+    try {
+        approveABtn.textContent = `Approving ${poolTokenA.name}...`;
+        approveABtn.disabled = true;
+        const tokenAContract = new web3.eth.Contract(erc20Abi, poolTokenA.address);
+        await tokenAContract.methods.approve(swapContractAddress, amountAWei).send({ from: accounts[0] });
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        await updateLiquidityButtonState();
+    } catch (error) {
+        console.error('Approve A error:', error);
+        alert(`Failed to approve ${poolTokenA.name}! ${error.message}`);
+        approveABtn.textContent = `Approve ${poolTokenA.name}`;
+        approveABtn.disabled = false;
+    }
+});
+
+// Approve Token B
+approveBBtn.addEventListener('click', async () => {
+    if (!currentProvider) return;
+    const web3 = new Web3(currentProvider);
+    const accounts = await web3.eth.getAccounts();
+    const amountB = parseFloat(poolAmountBInput.value) || 0;
+    const amountBWei = web3.utils.toWei(amountB.toString(), 'ether');
+
+    try {
+        approveBBtn.textContent = `Approving ${poolTokenB.name}...`;
+        approveBBtn.disabled = true;
+        const tokenBContract = new web3.eth.Contract(erc20Abi, poolTokenB.address);
+        await tokenBContract.methods.approve(swapContractAddress, amountBWei).send({ from: accounts[0] });
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        await updateLiquidityButtonState();
+    } catch (error) {
+        console.error('Approve B error:', error);
+        alert(`Failed to approve ${poolTokenB.name}! ${error.message}`);
+        approveBBtn.textContent = `Approve ${poolTokenB.name}`;
+        approveBBtn.disabled = false;
+    }
+});
+
 // Add Liquidity
 addLiquidityBtn.addEventListener('click', async () => {
+    if (addLiquidityBtn.dataset.action === 'connect') {
+        connectWalletModal.style.display = 'block';
+        overlay.style.display = 'block';
+        return;
+    }
     if (!currentProvider) {
         alert('Please connect your wallet to Tea Sepolia first!');
         return;
@@ -867,18 +1069,12 @@ addLiquidityBtn.addEventListener('click', async () => {
 
     const amountAWei = web3.utils.toWei(amountA.toString(), 'ether');
     const amountBWei = web3.utils.toWei(amountB.toString(), 'ether');
-    const amountAMin = web3.utils.toWei((amountA * 0.95).toString(), 'ether'); // 5% slippage
+    const amountAMin = web3.utils.toWei((amountA * 0.95).toString(), 'ether');
     const amountBMin = web3.utils.toWei((amountB * 0.95).toString(), 'ether');
 
     try {
-        if (poolTokenA.address !== '0x0000000000000000000000000000000000000000') {
-            const tokenAContract = new web3.eth.Contract(erc20Abi, poolTokenA.address);
-            await tokenAContract.methods.approve(swapContractAddress, amountAWei).send({ from: accounts[0] });
-        }
-        if (poolTokenB.address !== '0x0000000000000000000000000000000000000000') {
-            const tokenBContract = new web3.eth.Contract(erc20Abi, poolTokenB.address);
-            await tokenBContract.methods.approve(swapContractAddress, amountBWei).send({ from: accounts[0] });
-        }
+        addLiquidityBtn.textContent = 'Adding Liquidity...';
+        addLiquidityBtn.disabled = true;
 
         const tx = await swapContract.methods.addLiquidity(
             poolTokenA.address,
@@ -894,10 +1090,17 @@ addLiquidityBtn.addEventListener('click', async () => {
         });
 
         showSuccessModal(`Added ${amountA} ${poolTokenA.name} + ${amountB} ${poolTokenB.name} liquidity!`, tx.transactionHash);
+        addToSwapHistory('add', amountA, poolTokenA.name, amountB, poolTokenB.name, tx.transactionHash);
+        poolAmountAInput.value = '';
+        poolAmountBInput.value = '';
+        await updatePoolBalancesAndInfo();
         await updateLiquidityList();
     } catch (error) {
         console.error('Add liquidity error:', error);
         alert(`Failed to add liquidity! ${error.message}`);
+    } finally {
+        addLiquidityBtn.textContent = 'Add Liquidity';
+        addLiquidityBtn.disabled = false;
     }
 });
 
@@ -967,15 +1170,25 @@ removeLiquidityBtn.addEventListener('click', async () => {
             tokenA,
             tokenB,
             lpAmount,
-            0, // amountAMin
-            0  // amountBMin
+            0,
+            0
         ).send({
             from: accounts[0],
             gas: 500000
         });
 
+        const reserveA = await swapContract.methods.reserves(tokenA, tokenB).call();
+        const reserveB = await swapContract.methods.reserves(tokenB, tokenA).call();
+        const totalSupply = await swapContract.methods.totalSupply(tokenA, tokenB).call();
+        const amountA = (lpAmount * reserveA) / totalSupply;
+        const amountB = (lpAmount * reserveB) / totalSupply;
+        const amountAFormatted = web3.utils.fromWei(amountA.toString(), 'ether');
+        const amountBFormatted = web3.utils.fromWei(amountB.toString(), 'ether');
+
         showSuccessModal('Liquidity removed successfully!', tx.transactionHash);
+        addToSwapHistory('remove', amountAFormatted, poolTokenA.name, amountBFormatted, poolTokenB.name, tx.transactionHash);
         await updateLiquidityList();
+        await updatePoolBalancesAndInfo();
         removeLiquidityBtn.disabled = true;
     } catch (error) {
         console.error('Remove liquidity error:', error);
@@ -983,40 +1196,100 @@ removeLiquidityBtn.addEventListener('click', async () => {
     }
 });
 
-// Success Modal
-const showSuccessModal = (message, txHash) => {
-    const modal = document.getElementById('success-modal');
-    const messageEl = document.getElementById('success-message');
-    const txLink = document.getElementById('tx-link');
-    const closeModal = document.getElementById('close-modal');
-
-    messageEl.textContent = message;
-    txLink.href = `https://sepolia.tea.xyz/tx/${txHash}`;
-    txLink.textContent = 'View on Explorer';
-    modal.classList.add('active');
-    overlay.style.display = 'block';
-
-    closeModal.onclick = () => {
-        modal.classList.remove('active');
-        overlay.style.display = 'none';
-    };
-    overlay.onclick = () => {
-        modal.classList.remove('active');
-        overlay.style.display = 'none';
-    };
+// Swap History Functions
+const addToSwapHistory = (type, amountA, tokenA, amountB, tokenB, txHash) => {
+    let entry;
+    if (type === 'swap') {
+        entry = {
+            type: 'swap',
+            fromAmount: amountA,
+            fromToken: tokenA,
+            toAmount: amountB,
+            toToken: tokenB,
+            txHash,
+            timestamp: new Date().toISOString()
+        };
+    } else if (type === 'add') {
+        entry = {
+            type: 'add',
+            amountA,
+            tokenA,
+            amountB,
+            tokenB,
+            txHash,
+            timestamp: new Date().toISOString()
+        };
+    } else if (type === 'remove') {
+        entry = {
+            type: 'remove',
+            amountA,
+            tokenA,
+            amountB,
+            tokenB,
+            txHash,
+            timestamp: new Date().toISOString()
+        };
+    }
+    swapHistory.unshift(entry);
+    if (swapHistory.length > 50) swapHistory.pop();
+    localStorage.setItem('swapHistory', JSON.stringify(swapHistory));
+    renderSwapHistory();
 };
 
-// Overlay Click
+const renderSwapHistory = () => {
+    swapHistoryList.innerHTML = '';
+    if (swapHistory.length === 0) {
+        swapHistoryList.innerHTML = '<p>No history yet.</p>';
+        return;
+    }
+    swapHistory.forEach(entry => {
+        const date = new Date(entry.timestamp).toLocaleString();
+        let text;
+        if (entry.type === 'swap') {
+            text = `${entry.fromAmount} ${entry.fromToken} → ${entry.toAmount} ${entry.toToken}`;
+        } else if (entry.type === 'add') {
+            text = `Added ${entry.amountA} ${entry.tokenA} + ${entry.amountB} ${entry.tokenB} LP`;
+        } else if (entry.type === 'remove') {
+            text = `Removed ${entry.amountA} ${entry.tokenA} + ${entry.amountB} ${entry.tokenB} LP`;
+        }
+        swapHistoryList.innerHTML += `
+            <div class="history-item">
+                <span>${text}</span>
+                <a href="https://sepolia.tea.xyz/tx/${entry.txHash}" target="_blank">View</a>
+            </div>
+        `;
+    });
+};
+
+// Success Modal
+const showSuccessModal = (message, txHash) => {
+    successMessage.textContent = message;
+    txLink.href = `https://sepolia.tea.xyz/tx/${txHash}`;
+    successModal.classList.add('active');
+    overlay.style.display = 'block';
+};
+
+closeModal.addEventListener('click', () => {
+    successModal.classList.remove('active');
+    overlay.style.display = 'none';
+});
+
 overlay.addEventListener('click', () => {
     connectWalletModal.style.display = 'none';
-    tokenSelectModal.style.display = 'none';
     assetModal.style.display = 'none';
-    document.getElementById('success-modal').classList.remove('active');
+    tokenSelectModal.style.display = 'none';
+    successModal.classList.remove('active');
     slippagePopup.style.display = 'none';
     overlay.style.display = 'none';
 });
 
-// Initial Update
-updateChainStatus();
-updateFromBalance();
-updateLiquidityList();
+// Inisialisasi
+document.addEventListener('DOMContentLoaded', () => {
+    if (!document.body.classList.contains('dark-mode') && !document.body.classList.contains('light-mode')) {
+        document.body.classList.add('dark-mode');
+    }
+    updateChainStatus();
+    updateSwapButtonState();
+    updateLiquidityButtonState();
+    renderSwapHistory();
+});
