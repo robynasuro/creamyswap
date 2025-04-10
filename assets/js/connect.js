@@ -192,6 +192,17 @@ const erc20Abi = [
         "outputs": [{"name": "", "type": "bool"}],
         "stateMutability": "nonpayable",
         "type": "function"
+    },
+    {
+        "constant": true,
+        "inputs": [
+            {"name": "_owner", "type": "address"},
+            {"name": "_spender", "type": "address"}
+        ],
+        "name": "allowance",
+        "outputs": [{"name": "", "type": "uint256"}],
+        "stateMutability": "view",
+        "type": "function"
     }
 ];
 
@@ -282,8 +293,13 @@ const updateEstimatedOutput = async () => {
     const swapContract = new web3.eth.Contract(swapContractAbi, swapContractAddress);
     let reserveIn, reserveOut;
     try {
+        // Cek reserve dua arah
         reserveIn = await swapContract.methods.reserves(fromToken.address, toToken.address).call();
         reserveOut = await swapContract.methods.reserves(toToken.address, fromToken.address).call();
+        if (reserveIn == 0 || reserveOut == 0) {
+            reserveIn = await swapContract.methods.reserves(toToken.address, fromToken.address).call();
+            reserveOut = await swapContract.methods.reserves(fromToken.address, toToken.address).call();
+        }
     } catch (error) {
         console.error('Error fetching reserves:', error);
         swapBtn.textContent = 'Insufficient Liquidity';
@@ -300,15 +316,15 @@ const updateEstimatedOutput = async () => {
     const amountIn = web3.utils.toWei(fromAmount.toString(), 'ether');
     const amountInWithFee = BigInt(amountIn) * BigInt(997) / BigInt(1000); // 0.3% fee
     const numerator = BigInt(reserveOut) * amountInWithFee;
-    const denominator = (BigInt(reserveIn) * BigInt(1000)) + amountInWithFee;
+    const denominator = BigInt(reserveIn) * BigInt(1000) + amountInWithFee;
     const amountOut = numerator / denominator;
     const toAmount = web3.utils.fromWei(amountOut.toString(), 'ether');
 
-    toAmountInput.value = toAmount.toFixed(6);
-    estimatedOutput.textContent = `~${toAmount.toFixed(6)} ${toToken.name}`;
+    toAmountInput.value = parseFloat(toAmount).toFixed(6);
+    estimatedOutput.textContent = `~${parseFloat(toAmount).toFixed(6)} ${toToken.name}`;
 
     const slippageFactor = 1 - (slippageTolerance / 100);
-    const minReceived = toAmount * slippageFactor;
+    const minReceived = parseFloat(toAmount) * slippageFactor;
     document.getElementById('minimum-received').textContent = `${minReceived.toFixed(6)} ${toToken.name}`;
     document.getElementById('price-impact').textContent = '0.1%';
     document.getElementById('max-slippage').textContent = `Auto ${slippageTolerance}%`;
@@ -316,7 +332,7 @@ const updateEstimatedOutput = async () => {
     const gasPrice = await web3.eth.getGasPrice();
     const gasEstimate = 100000;
     const gasFeeInEth = web3.utils.fromWei((gasPrice * gasEstimate).toString(), 'ether');
-    const gasFeeInUsd = gasFeeInEth * 2000;
+    const gasFeeInUsd = gasFeeInEth * 2000; // Asumsi 1 ETH = $2000
     document.getElementById('gas-fee-value').textContent = `$${gasFeeInUsd.toFixed(2)}`;
     document.getElementById('network-cost').textContent = `$${gasFeeInUsd.toFixed(2)}`;
 };
@@ -337,9 +353,18 @@ const updateLiquidityEstimate = async () => {
     if (reserveA == 0 && reserveB == 0) {
         poolAmountBInput.value = amountA.toFixed(6); // Initial 1:1 if no liquidity
     } else {
-        const amountB = (amountA * reserveB) / reserveA;
+        const amountB = (amountA * Number(reserveB)) / Number(reserveA);
         poolAmountBInput.value = amountB.toFixed(6);
     }
+};
+
+// Debounce function biar update ga berat
+const debounce = (func, wait) => {
+    let timeout;
+    return (...args) => {
+        clearTimeout(timeout);
+        timeout = setTimeout(() => func.apply(this, args), wait);
+    };
 };
 
 // Fungsi cek allowance dan update tombol Approve/Swap
@@ -397,13 +422,13 @@ const updateSwapButtonState = async () => {
     }
 };
 
-// Event listener buat input "From" dan "Pool A"
-fromAmountInput.addEventListener('input', async () => {
+// Event listener buat input "From" dan "Pool A" dengan debounce
+fromAmountInput.addEventListener('input', debounce(async () => {
     await updateEstimatedOutput();
     await updateSwapButtonState();
-});
+}, 300));
 
-poolAmountAInput.addEventListener('input', updateLiquidityEstimate);
+poolAmountAInput.addEventListener('input', debounce(updateLiquidityEstimate, 300));
 
 // Token Selection
 let currentInput = null;
@@ -584,6 +609,10 @@ swapBtn.addEventListener('click', async () => {
     try {
         reserveIn = await swapContract.methods.reserves(fromToken.address, toToken.address).call();
         reserveOut = await swapContract.methods.reserves(toToken.address, fromToken.address).call();
+        if (reserveIn == 0 || reserveOut == 0) {
+            reserveIn = await swapContract.methods.reserves(toToken.address, fromToken.address).call();
+            reserveOut = await swapContract.methods.reserves(fromToken.address, toToken.address).call();
+        }
     } catch (error) {
         alert('Failed to fetch reserves. Liquidity pool might be empty.');
         return;
@@ -596,17 +625,20 @@ swapBtn.addEventListener('click', async () => {
 
     const amountInWithFee = BigInt(amountIn) * BigInt(997) / BigInt(1000);
     const numerator = BigInt(reserveOut) * amountInWithFee;
-    const denominator = (BigInt(reserveIn) * BigInt(1000)) + amountInWithFee;
+    const denominator = BigInt(reserveIn) * BigInt(1000) + amountInWithFee;
     const amountOut = numerator / denominator;
     const amountOutMin = BigInt(Math.floor(Number(amountOut) * slippageFactor));
 
     try {
-        if (swapBtn.dataset.action === 'approve') {
+        if (swapBtn.dataset.action === 'approve' && fromToken.address !== '0x0000000000000000000000000000000000000000') {
             const tokenContract = new web3.eth.Contract(erc20Abi, fromToken.address);
-            swapBtn.textContent = `Approving ${fromToken.name}...`;
-            swapBtn.disabled = true;
-            await tokenContract.methods.approve(swapContractAddress, amountIn).send({ from: accounts[0] });
-            await new Promise(resolve => setTimeout(resolve, 2000));
+            const allowance = await tokenContract.methods.allowance(accounts[0], swapContractAddress).call();
+            if (BigInt(allowance) < BigInt(amountIn)) {
+                swapBtn.textContent = `Approving ${fromToken.name}...`;
+                swapBtn.disabled = true;
+                await tokenContract.methods.approve(swapContractAddress, amountIn).send({ from: accounts[0] });
+                await new Promise(resolve => setTimeout(resolve, 2000));
+            }
             swapBtn.textContent = 'Swap';
             swapBtn.dataset.action = 'swap';
             swapBtn.disabled = false;
@@ -961,15 +993,15 @@ const showSuccessModal = (message, txHash) => {
     messageEl.textContent = message;
     txLink.href = `https://sepolia.tea.xyz/tx/${txHash}`;
     txLink.textContent = 'View on Explorer';
-    modal.style.display = 'flex';
+    modal.classList.add('active');
     overlay.style.display = 'block';
 
     closeModal.onclick = () => {
-        modal.style.display = 'none';
+        modal.classList.remove('active');
         overlay.style.display = 'none';
     };
     overlay.onclick = () => {
-        modal.style.display = 'none';
+        modal.classList.remove('active');
         overlay.style.display = 'none';
     };
 };
@@ -979,7 +1011,7 @@ overlay.addEventListener('click', () => {
     connectWalletModal.style.display = 'none';
     tokenSelectModal.style.display = 'none';
     assetModal.style.display = 'none';
-    document.getElementById('success-modal').style.display = 'none';
+    document.getElementById('success-modal').classList.remove('active');
     slippagePopup.style.display = 'none';
     overlay.style.display = 'none';
 });
