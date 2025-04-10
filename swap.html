@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CreamySwap</title>
     <link rel="stylesheet" href="assets/css/style.css">
+    <link rel="icon" href="assets/img/creamy-logo.png" type="image/png">
 </head>
 <body class="dark-mode">
     <nav class="navbar">
@@ -55,7 +56,7 @@
                 <div class="swap-input-box">
                     <label for="from-amount">From</label>
                     <div class="input-wrapper">
-                        <input type="number" id="from-amount" placeholder="0.0">
+                        <input type="number" id="from-amount" placeholder="0.0" step="0.01">
                         <button id="from-token-btn" class="token-select-btn">
                             <img src="assets/img/tea.png" alt="TEA" class="token-img"> TEA
                         </button>
@@ -72,7 +73,7 @@
                 <div class="swap-input-box">
                     <label for="to-amount">To (estimated)</label>
                     <div class="input-wrapper">
-                        <input type="number" id="to-amount" placeholder="0.0" readonly>
+                        <input type="number" id="to-amount" placeholder="0.0" step="0.01" readonly>
                         <button id="to-token-btn" class="token-select-btn">
                             <img src="assets/img/eth.png" alt="ETH" class="token-img"> ETH
                         </button>
@@ -108,7 +109,7 @@
                     </div>
                 </div>
 
-                <button id="swap-btn">Swap</button>
+                <button id="swap-btn" disabled>Enter an amount</button>
                 <button id="faucet-btn">Get Faucet</button>
             </div>
         </div>
@@ -120,7 +121,7 @@
                 <div class="swap-input-box">
                     <label>Token A</label>
                     <div class="input-wrapper">
-                        <input type="number" id="pool-amount-a" placeholder="0.0">
+                        <input type="number" id="pool-amount-a" placeholder="0.0" step="0.01">
                         <button id="pool-token-a-btn" class="token-select-btn">
                             <img src="assets/img/eth.png" alt="ETH" class="token-img"> ETH
                         </button>
@@ -130,7 +131,7 @@
                 <div class="swap-input-box">
                     <label>Token B</label>
                     <div class="input-wrapper">
-                        <input type="number" id="pool-amount-b" placeholder="0.0">
+                        <input type="number" id="pool-amount-b" placeholder="0.0" step="0.01">
                         <button id="pool-token-b-btn" class="token-select-btn">
                             <img src="assets/img/usdt.png" alt="USDT" class="token-img"> USDT
                         </button>
@@ -170,15 +171,7 @@
             <button id="add-custom-token-btn">Add</button>
         </div>
         <div id="token-list">
-            <div class="token-option" data-token="TEA" data-address="0x0000000000000000000000000000000000000000">
-                <img src="assets/img/tea.png" alt="TEA"> TEA
-            </div>
-            <div class="token-option" data-token="ETH" data-address="0x8339581846eDf61dc147966E807e48763dCb09E8">
-                <img src="assets/img/eth.png" alt="ETH"> ETH
-            </div>
-            <div class="token-option" data-token="USDT" data-address="0x9e1C4327ee92248C6b8B76d175d20B8F5cf1b168">
-                <img src="assets/img/usdt.png" alt="USDT"> USDT
-            </div>
+            <!-- Token list di-render via JS -->
         </div>
     </div>
 
