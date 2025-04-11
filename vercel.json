@@ -1,0 +1,12 @@
+{
+  "rewrites": [
+    {
+      "source": "/swap",
+      "destination": "/swap.html"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
+}
