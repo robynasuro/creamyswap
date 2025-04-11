@@ -66,8 +66,8 @@ const txLink = document.getElementById('tx-link');
 const closeModal = document.getElementById('close-modal');
 
 // Contract setup
-const swapContractAddress = "0xF4c54E267B56066731B6BA27F2b7b8e9Fe087144";
-const faucetContractAddress = "0x2eAb116f6A210ff5656892bD9bb8d7c60fAde92C";
+const swapContractAddress = "0x02fcE2DB122e701BbeB30b12408Cbc202f7B3eC5";
+const faucetContractAddress = "0x2D65E6f9cdF755C64755251B686d9d1f0C5437Fa";
 
 // Swap ABI (Uniswap V2-style untuk CreamySwap)
 const swapContractAbi = [
@@ -194,9 +194,9 @@ const erc20Abi = [
 let currentProvider = null;
 let walletType = null;
 let fromToken = { name: 'TEA', address: '0x0000000000000000000000000000000000000000' };
-let toToken = { name: 'ETH', address: '0x8339581846eDf61dc147966E807e48763dCb09E8' };
-let poolTokenA = { name: 'ETH', address: '0x8339581846eDf61dc147966E807e48763dCb09E8' };
-let poolTokenB = { name: 'USDT', address: '0x9e1C4327ee92248C6b8B76d175d20B8F5cf1b168' };
+let toToken = { name: 'ETH', address: '0xadc8988012410F9ED43f840E6499b74C1Cf94870' };
+let poolTokenA = { name: 'ETH', address: '0xadc8988012410F9ED43f840E6499b74C1Cf94870' };
+let poolTokenB = { name: 'USDT', address: '0x581711F99DaFf0db829B77b9c20b85C697d79b5E' };
 let fromBalance = 0;
 let poolABalance = 0;
 let poolBBalance = 0;
@@ -298,7 +298,17 @@ const updatePoolBalancesAndInfo = async () => {
     await updatePoolInfo();
 };
 
-// Update estimasi output swap
+// Fungsi helper untuk ambil reserve dengan handle TEA
+const getReserveForToken = async (web3, swapContract, tokenIn, tokenOut, amountInWei = '0') => {
+    if (tokenIn === '0x0000000000000000000000000000000000000000') {
+        const contractBalance = await web3.eth.getBalance(swapContractAddress);
+        return BigInt(contractBalance) - BigInt(amountInWei); // Kurangi amountIn kalo tokenIn adalah TEA
+    } else {
+        return BigInt(await swapContract.methods.reserves(tokenIn, tokenOut).call());
+    }
+};
+
+// Update estimasi output swap (FIXED)
 const updateEstimatedOutput = async () => {
     const fromAmount = parseFloat(fromAmountInput.value) || 0;
     toAmountInput.value = '0.0';
@@ -313,13 +323,17 @@ const updateEstimatedOutput = async () => {
 
     const web3 = new Web3(currentProvider);
     const swapContract = new web3.eth.Contract(swapContractAbi, swapContractAddress);
+    const amountInWei = web3.utils.toWei(fromAmount.toString(), 'ether');
+
     let reserveIn, reserveOut;
     try {
-        reserveIn = await swapContract.methods.reserves(fromToken.address, toToken.address).call();
-        reserveOut = await swapContract.methods.reserves(toToken.address, fromToken.address).call();
-        if (reserveIn == 0 || reserveOut == 0) {
-            reserveIn = await swapContract.methods.reserves(toToken.address, fromToken.address).call();
-            reserveOut = await swapContract.methods.reserves(fromToken.address, toToken.address).call();
+        reserveIn = await getReserveForToken(web3, swapContract, fromToken.address, toToken.address, amountInWei);
+        reserveOut = await getReserveForToken(web3, swapContract, toToken.address, fromToken.address);
+
+        if (reserveIn <= 0n || reserveOut <= 0n) {
+            swapBtn.textContent = 'Insufficient Liquidity';
+            swapBtn.disabled = true;
+            return;
         }
     } catch (error) {
         console.error('Error fetching reserves:', error);
@@ -328,18 +342,17 @@ const updateEstimatedOutput = async () => {
         return;
     }
 
-    if (reserveIn == 0 || reserveOut == 0) {
-        swapBtn.textContent = 'Insufficient Liquidity';
-        swapBtn.disabled = true;
-        return;
-    }
-
-    const amountIn = web3.utils.toWei(fromAmount.toString(), 'ether');
-    const amountInWithFee = BigInt(amountIn) * BigInt(997) / BigInt(1000);
-    const numerator = BigInt(reserveOut) * amountInWithFee;
-    const denominator = BigInt(reserveIn) * BigInt(1000) + amountInWithFee;
+    // Hitung amountOut pake rumus kontrak
+    const amountInWithFee = BigInt(amountInWei) * 997n / 1000n; // 0.3% fee
+    const numerator = amountInWithFee * reserveOut;
+    const denominator = reserveIn + amountInWithFee;
     const amountOut = numerator / denominator;
     const toAmount = web3.utils.fromWei(amountOut.toString(), 'ether');
+
+    // Hitung price impact
+    const priceBefore = Number(reserveOut) / Number(reserveIn);
+    const priceAfter = Number(reserveOut - amountOut) / Number(reserveIn + BigInt(amountInWei));
+    const priceImpact = ((priceBefore - priceAfter) / priceBefore) * 100;
 
     toAmountInput.value = parseFloat(toAmount).toFixed(6);
     estimatedOutput.textContent = `~${parseFloat(toAmount).toFixed(6)} ${toToken.name}`;
@@ -347,13 +360,13 @@ const updateEstimatedOutput = async () => {
     const slippageFactor = 1 - (slippageTolerance / 100);
     const minReceived = parseFloat(toAmount) * slippageFactor;
     document.getElementById('minimum-received').textContent = `${minReceived.toFixed(6)} ${toToken.name}`;
-    document.getElementById('price-impact').textContent = '0.1%';
+    document.getElementById('price-impact').textContent = `${priceImpact.toFixed(2)}%`;
     document.getElementById('max-slippage').textContent = `Auto ${slippageTolerance}%`;
 
     const gasPrice = await web3.eth.getGasPrice();
     const gasEstimate = 100000;
-    const gasFeeInEth = web3.utils.fromWei((gasPrice * gasEstimate).toString(), 'ether');
-    const gasFeeInUsd = gasFeeInEth * 2000;
+    const gasFeeInEth = web3.utils.fromWei((BigInt(gasPrice) * BigInt(gasEstimate)).toString(), 'ether');
+    const gasFeeInUsd = gasFeeInEth * 2000; // Asumsi 1 ETH = $2000
     document.getElementById('gas-fee-value').textContent = `$${gasFeeInUsd.toFixed(2)}`;
     document.getElementById('network-cost').textContent = `$${gasFeeInUsd.toFixed(2)}`;
 };
@@ -503,7 +516,7 @@ const updateLiquidityButtonState = async () => {
         approveBBtn.style.display = 'none';
         addLiquidityBtn.textContent = 'Enter an amount';
         addLiquidityBtn.disabled = true;
-        delete addLiquidityBtn.dataset.action; // Hapus action kalo ga valid
+        delete addLiquidityBtn.dataset.action;
         return;
     }
 
@@ -512,7 +525,7 @@ const updateLiquidityButtonState = async () => {
         approveBBtn.style.display = 'none';
         addLiquidityBtn.textContent = 'Insufficient Balance';
         addLiquidityBtn.disabled = true;
-        delete addLiquidityBtn.dataset.action; // Hapus action kalo ga valid
+        delete addLiquidityBtn.dataset.action;
         return;
     }
 
@@ -547,9 +560,9 @@ const updateLiquidityButtonState = async () => {
     addLiquidityBtn.disabled = needApproveA || needApproveB;
     addLiquidityBtn.style.display = 'block';
     if (!needApproveA && !needApproveB) {
-        addLiquidityBtn.dataset.action = 'add'; // Set action ke 'add' kalo udah siap
+        addLiquidityBtn.dataset.action = 'add';
     } else {
-        delete addLiquidityBtn.dataset.action; // Hapus action kalo masih perlu approve
+        delete addLiquidityBtn.dataset.action;
     }
 };
 
@@ -602,10 +615,10 @@ const renderTokenList = () => {
         <div class="token-option" data-token="TEA" data-address="0x0000000000000000000000000000000000000000">
             <img src="/assets/img/tea.png" alt="TEA"> TEA
         </div>
-        <div class="token-option" data-token="ETH" data-address="0x8339581846eDf61dc147966E807e48763dCb09E8">
+        <div class="token-option" data-token="ETH" data-address="0xadc8988012410F9ED43f840E6499b74C1Cf94870">
             <img src="/assets/img/eth.png" alt="ETH"> ETH
         </div>
-        <div class="token-option" data-token="USDT" data-address="0x9e1C4327ee92248C6b8B76d175d20B8F5cf1b168">
+        <div class="token-option" data-token="USDT" data-address="0x581711F99DaFf0db829B77b9c20b85C697d79b5E">
             <img src="/assets/img/usdt.png" alt="USDT"> USDT
         </div>
     `;
@@ -743,25 +756,21 @@ swapBtn.addEventListener('click', async () => {
     const slippageFactor = 1 - (slippageTolerance / 100);
     let reserveIn, reserveOut;
     try {
-        reserveIn = await swapContract.methods.reserves(fromToken.address, toToken.address).call();
-        reserveOut = await swapContract.methods.reserves(toToken.address, fromToken.address).call();
-        if (reserveIn == 0 || reserveOut == 0) {
-            reserveIn = await swapContract.methods.reserves(toToken.address, fromToken.address).call();
-            reserveOut = await swapContract.methods.reserves(fromToken.address, toToken.address).call();
+        reserveIn = await getReserveForToken(web3, swapContract, fromToken.address, toToken.address, amountIn);
+        reserveOut = await getReserveForToken(web3, swapContract, toToken.address, fromToken.address);
+
+        if (reserveIn <= 0n || reserveOut <= 0n) {
+            alert('Insufficient liquidity in the pool. Please add liquidity first!');
+            return;
         }
     } catch (error) {
         alert('Failed to fetch reserves. Liquidity pool might be empty.');
         return;
     }
 
-    if (reserveIn == 0 || reserveOut == 0) {
-        alert('Insufficient liquidity in the pool. Please add liquidity first!');
-        return;
-    }
-
-    const amountInWithFee = BigInt(amountIn) * BigInt(997) / BigInt(1000);
-    const numerator = BigInt(reserveOut) * amountInWithFee;
-    const denominator = BigInt(reserveIn) * BigInt(1000) + amountInWithFee;
+    const amountInWithFee = BigInt(amountIn) * 997n / 1000n;
+    const numerator = amountInWithFee * reserveOut;
+    const denominator = reserveIn + amountInWithFee;
     const amountOut = numerator / denominator;
     const amountOutMin = BigInt(Math.floor(Number(amountOut) * slippageFactor));
 
@@ -937,9 +946,9 @@ const showAssets = async () => {
 
     const teaBalance = await getTokenBalance(web3, address, { name: 'TEA', address: '0x0000000000000000000000000000000000000000' });
     assetList.innerHTML += `<div class="asset-item"><span>TEA</span><span>${parseFloat(teaBalance).toFixed(4)} TEA</span></div>`;
-    const ethBalance = await getTokenBalance(web3, address, { name: 'ETH', address: '0x8339581846eDf61dc147966E807e48763dCb09E8' });
+    const ethBalance = await getTokenBalance(web3, address, { name: 'ETH', address: '0xadc8988012410F9ED43f840E6499b74C1Cf94870' });
     assetList.innerHTML += `<div class="asset-item"><span>ETH</span><span>${parseFloat(ethBalance).toFixed(4)} ETH</span></div>`;
-    const usdtBalance = await getTokenBalance(web3, address, { name: 'USDT', address: '0x9e1C4327ee92248C6b8B76d175d20B8F5cf1b168' });
+    const usdtBalance = await getTokenBalance(web3, address, { name: 'USDT', address: '0x581711F99DaFf0db829B77b9c20b85C697d79b5E' });
     assetList.innerHTML += `<div class="asset-item"><span>USDT</span><span>${parseFloat(usdtBalance).toFixed(4)} USDT</span></div>`;
 
     assetModal.style.display = 'block';
@@ -1115,9 +1124,9 @@ const updateLiquidityList = async () => {
     liquidityList.innerHTML = '';
 
     const pairs = [
-        { tokenA: '0x0000000000000000000000000000000000000000', tokenB: '0x8339581846eDf61dc147966E807e48763dCb09E8', nameA: 'TEA', nameB: 'ETH' },
-        { tokenA: '0x0000000000000000000000000000000000000000', tokenB: '0x9e1C4327ee92248C6b8B76d175d20B8F5cf1b168', nameA: 'TEA', nameB: 'USDT' },
-        { tokenA: '0x8339581846eDf61dc147966E807e48763dCb09E8', tokenB: '0x9e1C4327ee92248C6b8B76d175d20B8F5cf1b168', nameA: 'ETH', nameB: 'USDT' }
+        { tokenA: '0x0000000000000000000000000000000000000000', tokenB: '0xadc8988012410F9ED43f840E6499b74C1Cf94870', nameA: 'TEA', nameB: 'ETH' },
+        { tokenA: '0x0000000000000000000000000000000000000000', tokenB: '0x581711F99DaFf0db829B77b9c20b85C697d79b5E', nameA: 'TEA', nameB: 'USDT' },
+        { tokenA: '0xadc8988012410F9ED43f840E6499b74C1Cf94870', tokenB: '0x581711F99DaFf0db829B77b9c20b85C697d79b5E', nameA: 'ETH', nameB: 'USDT' }
     ];
 
     for (const pair of pairs) {
