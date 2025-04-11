@@ -292,3 +292,12 @@ body {
 .feature.visible {
   opacity: 1;
 }
+
+.contract-link {
+  color: #f59e0b;
+  text-decoration: none;
+  margin-left: 10px;
+}
+.contract-link:hover {
+  color: #ffffff;
+}
