@@ -32,6 +32,8 @@ const swapInfoDetails = document.getElementById('swap-info-details');
 const settingsBtn = document.querySelector('.settings-btn');
 const slippagePopup = document.getElementById('slippage-popup');
 const slippageButtons = document.querySelectorAll('.slippage-btn');
+const customSlippageInput = document.getElementById('custom-slippage-input');
+const setCustomSlippageBtn = document.getElementById('set-custom-slippage');
 
 // Pool Elements
 const poolAmountAInput = document.getElementById('pool-amount-a');
@@ -64,6 +66,12 @@ const successModal = document.getElementById('success-modal');
 const successMessage = document.getElementById('success-message');
 const txLink = document.getElementById('tx-link');
 const closeModal = document.getElementById('close-modal');
+
+// Error Modal
+const errorModal = document.getElementById('error-modal');
+const errorMessage = document.getElementById('error-message');
+const errorTxLink = document.getElementById('error-tx-link');
+const closeErrorModal = document.getElementById('close-error-modal');
 
 // Contract setup
 const swapContractAddress = "0x02fcE2DB122e701BbeB30b12408Cbc202f7B3eC5";
@@ -308,7 +316,7 @@ const getReserveForToken = async (web3, swapContract, tokenIn, tokenOut, amountI
     }
 };
 
-// Update estimasi output swap (FIXED)
+// Update estimasi output swap
 const updateEstimatedOutput = async () => {
     const fromAmount = parseFloat(fromAmountInput.value) || 0;
     toAmountInput.value = '0.0';
@@ -342,14 +350,12 @@ const updateEstimatedOutput = async () => {
         return;
     }
 
-    // Hitung amountOut pake rumus kontrak
     const amountInWithFee = BigInt(amountInWei) * 997n / 1000n; // 0.3% fee
     const numerator = amountInWithFee * reserveOut;
     const denominator = reserveIn + amountInWithFee;
     const amountOut = numerator / denominator;
     const toAmount = web3.utils.fromWei(amountOut.toString(), 'ether');
 
-    // Hitung price impact
     const priceBefore = Number(reserveOut) / Number(reserveIn);
     const priceAfter = Number(reserveOut - amountOut) / Number(reserveIn + BigInt(amountInWei));
     const priceImpact = ((priceBefore - priceAfter) / priceBefore) * 100;
@@ -727,6 +733,234 @@ slippageButtons.forEach(btn => {
     });
 });
 
+setCustomSlippageBtn.addEventListener('click', () => {
+    const customValue = parseFloat(customSlippageInput.value);
+    if (isNaN(customValue) || customValue <= 0 || customValue > 100) {
+        alert('Please enter a valid slippage percentage (0-100%)!');
+        return;
+    }
+    slippageTolerance = customValue;
+    slippageButtons.forEach(b => b.classList.remove('active'));
+    document.getElementById('max-slippage').textContent = `Auto ${slippageTolerance}%`;
+    updateEstimatedOutput();
+    slippagePopup.style.display = 'none';
+    customSlippageInput.value = '';
+});
+
+// Success Modal Function
+const showSuccessModal = (message, txHash) => {
+    successMessage.textContent = message;
+    txLink.href = `https://sepolia.tea.xyz/tx/${txHash}`;
+    successModal.classList.add('active');
+    overlay.style.display = 'block';
+};
+
+closeModal.addEventListener('click', () => {
+    successModal.classList.remove('active');
+    overlay.style.display = 'none';
+});
+
+// Error Modal Function
+const showErrorModal = (message, txHash = null) => {
+    errorMessage.textContent = message;
+    if (txHash) {
+        errorTxLink.href = `https://sepolia.tea.xyz/tx/${txHash}`;
+        errorTxLink.style.display = 'block';
+    } else {
+        errorTxLink.style.display = 'none';
+    }
+    errorModal.classList.add('active');
+    overlay.style.display = 'block';
+    document.querySelector('#error-modal h2').classList.add('error');
+};
+
+closeErrorModal.addEventListener('click', () => {
+    errorModal.classList.remove('active');
+    overlay.style.display = 'none';
+});
+
+overlay.addEventListener('click', () => {
+    successModal.classList.remove('active');
+    errorModal.classList.remove('active');
+    connectWalletModal.style.display = 'none';
+    assetModal.style.display = 'none';
+    tokenSelectModal.style.display = 'none';
+    slippagePopup.style.display = 'none';
+    overlay.style.display = 'none';
+});
+
+// Connect Wallet Logic
+connectWalletBtn.addEventListener('click', () => {
+    if (connectWalletBtn.textContent !== 'Connect Wallet') {
+        showAssets();
+    } else {
+        connectWalletModal.style.display = 'block';
+        overlay.style.display = 'block';
+    }
+});
+
+walletOptions.forEach(option => {
+    option.addEventListener('click', async () => {
+        const wallet = option.getAttribute('data-wallet');
+        walletType = wallet;
+
+        connectWalletModal.style.display = 'none';
+        overlay.style.display = 'none';
+
+        const formatAddress = (address) => `${address.slice(0, 6)}...${address.slice(-4)}`;
+
+        const ensureTeaSepolia = async (provider) => {
+            try {
+                const chainId = await provider.request({ method: 'eth_chainId' });
+                if (chainId !== TEA_SEPOLIA_CHAIN_ID) {
+                    await provider.request({
+                        method: 'wallet_switchEthereumChain',
+                        params: [{ chainId: TEA_SEPOLIA_CHAIN_ID }],
+                    }).catch(async (switchError) => {
+                        if (switchError.code === 4902) {
+                            await provider.request({
+                                method: 'wallet_addEthereumChain',
+                                params: [{
+                                    chainId: TEA_SEPOLIA_CHAIN_ID,
+                                    chainName: 'Tea Sepolia',
+                                    rpcUrls: ['https://rpc.teatest.live'],
+                                    nativeCurrency: {
+                                        name: 'TEA',
+                                        symbol: 'TEA',
+                                        decimals: 18
+                                    },
+                                    blockExplorerUrls: ['https://sepolia.tea.xyz']
+                                }]
+                            });
+                        } else {
+                            throw switchError;
+                        }
+                    });
+                }
+                return true;
+            } catch (error) {
+                console.error('Failed to switch to Tea Sepolia:', error);
+                alert('Please switch to Tea Sepolia manually in your wallet.');
+                return false;
+            }
+        };
+
+        if (wallet === 'metamask' && window.ethereum) {
+            currentProvider = window.ethereum;
+            try {
+                const accounts = await currentProvider.request({ method: 'eth_requestAccounts' });
+                if (await ensureTeaSepolia(currentProvider)) {
+                    connectWalletBtn.textContent = formatAddress(accounts[0]);
+                    await updateChainStatus();
+                    await updateFromBalance();
+                    await updatePoolBalancesAndInfo();
+                    await updateLiquidityList();
+                }
+            } catch (error) {
+                console.error('MetaMask connection error:', error);
+                showErrorModal('Failed to connect MetaMask!');
+            }
+        } else if (wallet === 'okx' && window.okxwallet) {
+            currentProvider = window.okxwallet;
+            try {
+                const accounts = await currentProvider.request({ method: 'eth_requestAccounts' });
+                if (await ensureTeaSepolia(currentProvider)) {
+                    connectWalletBtn.textContent = formatAddress(accounts[0]);
+                    await updateChainStatus();
+                    await updateFromBalance();
+                    await updatePoolBalancesAndInfo();
+                    await updateLiquidityList();
+                }
+            } catch (error) {
+                console.error('OKX Wallet connection error:', error);
+                showErrorModal('Failed to connect OKX Wallet!');
+            }
+        } else {
+            alert(`Please install ${wallet === 'metamask' ? 'MetaMask' : 'OKX Wallet'} to use this wallet!`);
+        }
+
+        if (currentProvider) {
+            currentProvider.on('accountsChanged', async (accounts) => {
+                if (accounts.length > 0) {
+                    connectWalletBtn.textContent = formatAddress(accounts[0]);
+                    await updateFromBalance();
+                    await updatePoolBalancesAndInfo();
+                    await updateLiquidityList();
+                } else {
+                    disconnectWallet();
+                }
+            });
+
+            currentProvider.on('chainChanged', async () => {
+                await updateChainStatus();
+                await updateFromBalance();
+                await updatePoolBalancesAndInfo();
+                await updateLiquidityList();
+            });
+        }
+    });
+});
+
+// Show Assets
+const showAssets = async () => {
+    if (!currentProvider) return;
+    const web3 = new Web3(currentProvider);
+    const accounts = await web3.eth.getAccounts();
+    assetList.innerHTML = '';
+
+    const tokens = [
+        { name: 'TEA', address: '0x0000000000000000000000000000000000000000' },
+        { name: 'ETH', address: '0xadc8988012410F9ED43f840E6499b74C1Cf94870' },
+        { name: 'USDT', address: '0x581711F99DaFf0db829B77b9c20b85C697d79b5E' }
+    ];
+
+    for (const token of tokens) {
+        const balance = await getTokenBalance(web3, accounts[0], token);
+        const li = document.createElement('div');
+        li.className = 'asset-item';
+        li.innerHTML = `
+            <span><img src="/assets/img/${token.name.toLowerCase()}.png" alt="${token.name}" style="width: 20px; height: 20px; margin-right: 10px;"> ${token.name}</span>
+            <span>${parseFloat(balance).toFixed(4)}</span>
+        `;
+        assetList.appendChild(li);
+    }
+
+    assetModal.style.display = 'block';
+    overlay.style.display = 'block';
+};
+
+// Disconnect Wallet
+const disconnectWallet = () => {
+    currentProvider = null;
+    walletType = null;
+    connectWalletBtn.textContent = 'Connect Wallet';
+    chainDot.classList.remove('online');
+    chainDot.classList.add('offline');
+    chainStatus.textContent = 'Tea Sepolia';
+    fromBalanceSpan.textContent = '0.0';
+    poolABalanceSpan.textContent = '0.0';
+    poolBBalanceSpan.textContent = '0.0';
+    balanceInfo.style.display = 'none';
+    document.querySelector('.pool-a-balance-info').style.display = 'none';
+    document.querySelector('.pool-b-balance-info').style.display = 'none';
+    swapBtn.textContent = 'Connect Wallet';
+    swapBtn.dataset.action = 'connect';
+    swapBtn.disabled = false;
+    addLiquidityBtn.textContent = 'Connect Wallet';
+    addLiquidityBtn.dataset.action = 'connect';
+    addLiquidityBtn.disabled = false;
+    approveABtn.style.display = 'none';
+    approveBBtn.style.display = 'none';
+    liquidityList.innerHTML = '<p>Connect wallet to see your liquidity.</p>';
+    removeLiquidityBtn.disabled = true;
+};
+
+disconnectWalletBtn.addEventListener('click', () => {
+    disconnectWallet();
+    assetModal.style.display = 'none';
+    overlay.style.display = 'none';
+});
+
 // Tombol Swap/Approve
 swapBtn.addEventListener('click', async () => {
     if (swapBtn.dataset.action === 'connect') {
@@ -777,13 +1011,11 @@ swapBtn.addEventListener('click', async () => {
     try {
         if (swapBtn.dataset.action === 'approve' && fromToken.address !== '0x0000000000000000000000000000000000000000') {
             const tokenContract = new web3.eth.Contract(erc20Abi, fromToken.address);
-            const allowance = await tokenContract.methods.allowance(accounts[0], swapContractAddress).call();
-            if (BigInt(allowance) < BigInt(amountIn)) {
-                swapBtn.textContent = `Approving ${fromToken.name}...`;
-                swapBtn.disabled = true;
-                await tokenContract.methods.approve(swapContractAddress, amountIn).send({ from: accounts[0] });
-                await new Promise(resolve => setTimeout(resolve, 2000));
-            }
+            swapBtn.textContent = `Approving ${fromToken.name}...`;
+            swapBtn.disabled = true;
+            const tx = await tokenContract.methods.approve(swapContractAddress, amountIn).send({ from: accounts[0] });
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            showSuccessModal(`Approved ${fromToken.name} successfully!`, tx.transactionHash);
             swapBtn.textContent = 'Swap';
             swapBtn.dataset.action = 'swap';
             swapBtn.disabled = false;
@@ -792,16 +1024,15 @@ swapBtn.addEventListener('click', async () => {
 
         swapBtn.textContent = 'Swapping...';
         swapBtn.disabled = true;
+        const txOptions = fromToken.address === '0x0000000000000000000000000000000000000000'
+            ? { from: accounts[0], value: amountIn, gas: 300000 }
+            : { from: accounts[0], gas: 300000 };
         const tx = await swapContract.methods.swap(
             fromToken.address,
             toToken.address,
             amountIn,
             amountOutMin
-        ).send({
-            from: accounts[0],
-            value: fromToken.address === '0x0000000000000000000000000000000000000000' ? amountIn : 0,
-            gas: 300000
-        });
+        ).send(txOptions);
 
         const toAmount = web3.utils.fromWei(amountOut.toString(), 'ether');
         addToSwapHistory('swap', fromAmount, fromToken.name, toAmount, toToken.name, tx.transactionHash);
@@ -813,198 +1044,15 @@ swapBtn.addEventListener('click', async () => {
         swapBtn.disabled = false;
     } catch (error) {
         console.error('Swap/Approve error:', error);
-        alert(`Transaction failed! ${error.message || 'Check console for details.'}`);
+        let errorMsg = 'Transaction failed!';
+        if (error.message.includes('reverted')) {
+            errorMsg = 'Transaction reverted by the EVM. Check liquidity or slippage.';
+        } else if (error.message.includes('insufficient funds')) {
+            errorMsg = 'Insufficient funds for gas or token amount.';
+        }
+        showErrorModal(errorMsg, error.transactionHash || null);
         swapBtn.textContent = swapBtn.dataset.action === 'approve' ? `Approve ${fromToken.name}` : 'Swap';
         swapBtn.disabled = false;
-    }
-});
-
-// Connect Wallet
-connectWalletBtn.addEventListener('click', () => {
-    if (connectWalletBtn.textContent !== 'Connect Wallet') {
-        showAssets();
-    } else {
-        connectWalletModal.style.display = 'block';
-        overlay.style.display = 'block';
-    }
-});
-
-walletOptions.forEach(option => {
-    option.addEventListener('click', async () => {
-        const wallet = option.getAttribute('data-wallet');
-        walletType = wallet;
-
-        connectWalletModal.style.display = 'none';
-        overlay.style.display = 'none';
-
-        const formatAddress = (address) => `${address.slice(0, 6)}...${address.slice(-4)}`;
-
-        const ensureTeaSepolia = async (provider) => {
-            try {
-                const chainId = await provider.request({ method: 'eth_chainId' });
-                if (chainId !== TEA_SEPOLIA_CHAIN_ID) {
-                    await provider.request({
-                        method: 'wallet_switchEthereumChain',
-                        params: [{ chainId: TEA_SEPOLIA_CHAIN_ID }],
-                    }).catch(async (switchError) => {
-                        if (switchError.code === 4902) {
-                            await provider.request({
-                                method: 'wallet_addEthereumChain',
-                                params: [{
-                                    chainId: TEA_SEPOLIA_CHAIN_ID,
-                                    chainName: 'Tea Sepolia',
-                                    rpcUrls: ['https://tea-sepolia.g.alchemy.com/v2/X6UAIRaCqvRedwmWtWHXtKNxG3kQmwh1'],
-                                    nativeCurrency: { name: 'TEA', symbol: 'TEA', decimals: 18 },
-                                    blockExplorerUrls: ['https://sepolia.tea.xyz']
-                                }]
-                            });
-                        } else {
-                            throw switchError;
-                        }
-                    });
-                    await new Promise(resolve => setTimeout(resolve, 2000));
-                }
-            } catch (error) {
-                console.error('Error ensuring Tea Sepolia:', error);
-                throw error;
-            }
-        };
-
-        if (wallet === 'metamask' && window.ethereum) {
-            try {
-                const provider = window.ethereum;
-                await ensureTeaSepolia(provider);
-                const accounts = await provider.request({ method: 'eth_requestAccounts' });
-                currentProvider = provider;
-                const web3 = new Web3(currentProvider);
-                connectWalletBtn.textContent = formatAddress(accounts[0]);
-                await updateChainStatus();
-                await updateFromBalance();
-                await updatePoolBalancesAndInfo();
-
-                provider.on('chainChanged', () => {
-                    updateChainStatus();
-                    updateFromBalance();
-                    updatePoolBalancesAndInfo();
-                });
-                provider.on('accountsChanged', (accounts) => {
-                    if (accounts.length > 0) {
-                        connectWalletBtn.textContent = formatAddress(accounts[0]);
-                        updateFromBalance();
-                        updatePoolBalancesAndInfo();
-                    } else {
-                        disconnectWallet();
-                    }
-                });
-            } catch (error) {
-                console.error('Metamask connection error:', error);
-                alert('Failed to connect to Metamask!');
-            }
-        } else if (wallet === 'okx' && window.okxwallet) {
-            try {
-                const provider = window.okxwallet;
-                await ensureTeaSepolia(provider);
-                const accounts = await provider.request({ method: 'eth_requestAccounts' });
-                currentProvider = provider;
-                const web3 = new Web3(currentProvider);
-                connectWalletBtn.textContent = formatAddress(accounts[0]);
-                await updateChainStatus();
-                await updateFromBalance();
-                await updatePoolBalancesAndInfo();
-
-                provider.on('chainChanged', () => {
-                    updateChainStatus();
-                    updateFromBalance();
-                    updatePoolBalancesAndInfo();
-                });
-                provider.on('accountsChanged', (accounts) => {
-                    if (accounts.length > 0) {
-                        connectWalletBtn.textContent = formatAddress(accounts[0]);
-                        updateFromBalance();
-                        updatePoolBalancesAndInfo();
-                    } else {
-                        disconnectWallet();
-                    }
-                });
-            } catch (error) {
-                console.error('OKX Wallet connection error:', error);
-                alert('Failed to connect to OKX Wallet!');
-            }
-        } else {
-            alert(`Please install ${wallet === 'metamask' ? 'Metamask' : 'OKX Wallet'} extension!`);
-        }
-    });
-});
-
-// Fungsi untuk nampilin asset
-const showAssets = async () => {
-    if (!currentProvider) return;
-    const web3 = new Web3(currentProvider);
-    const accounts = await web3.eth.getAccounts();
-    const address = accounts[0];
-    assetList.innerHTML = '';
-
-    const teaBalance = await getTokenBalance(web3, address, { name: 'TEA', address: '0x0000000000000000000000000000000000000000' });
-    assetList.innerHTML += `<div class="asset-item"><span>TEA</span><span>${parseFloat(teaBalance).toFixed(4)} TEA</span></div>`;
-    const ethBalance = await getTokenBalance(web3, address, { name: 'ETH', address: '0xadc8988012410F9ED43f840E6499b74C1Cf94870' });
-    assetList.innerHTML += `<div class="asset-item"><span>ETH</span><span>${parseFloat(ethBalance).toFixed(4)} ETH</span></div>`;
-    const usdtBalance = await getTokenBalance(web3, address, { name: 'USDT', address: '0x581711F99DaFf0db829B77b9c20b85C697d79b5E' });
-    assetList.innerHTML += `<div class="asset-item"><span>USDT</span><span>${parseFloat(usdtBalance).toFixed(4)} USDT</span></div>`;
-
-    assetModal.style.display = 'block';
-    overlay.style.display = 'block';
-};
-
-// Disconnect Wallet
-const disconnectWallet = () => {
-    currentProvider = null;
-    walletType = null;
-    connectWalletBtn.textContent = 'Connect Wallet';
-    assetModal.style.display = 'none';
-    overlay.style.display = 'none';
-    balanceInfo.style.display = 'none';
-    document.querySelector('.pool-a-balance-info').style.display = 'none';
-    document.querySelector('.pool-b-balance-info').style.display = 'none';
-    chainDot.classList.remove('online');
-    chainDot.classList.add('offline');
-    chainStatus.textContent = 'Tea Sepolia';
-    updateSwapButtonState();
-    updateLiquidityButtonState();
-};
-
-disconnectWalletBtn.addEventListener('click', disconnectWallet);
-
-// Swap Info Toggle
-swapInfoToggle.addEventListener('click', () => {
-    swapInfoToggle.classList.toggle('active');
-    swapInfoDetails.classList.toggle('active');
-});
-
-// Faucet Button
-faucetBtn.addEventListener('click', async () => {
-    if (!currentProvider) {
-        alert('Please connect your wallet to Tea Sepolia first!');
-        return;
-    }
-
-    const web3 = new Web3(currentProvider);
-    const accounts = await web3.eth.getAccounts();
-    const faucetContract = new web3.eth.Contract(faucetAbi, faucetContractAddress);
-
-    try {
-        faucetBtn.textContent = 'Claiming...';
-        faucetBtn.disabled = true;
-
-        const tx = await faucetContract.methods.claim().send({ from: accounts[0], gas: 200000 });
-        showSuccessModal('Claimed 10 ETH and 10 USDT!', tx.transactionHash);
-        await updateFromBalance();
-        await updatePoolBalancesAndInfo();
-    } catch (error) {
-        console.error('Faucet error:', error);
-        alert(`Faucet failed! ${error.message || 'Might be due to cooldown or insufficient faucet balance.'}`);
-    } finally {
-        faucetBtn.textContent = 'Get Faucet';
-        faucetBtn.disabled = false;
     }
 });
 
@@ -1013,19 +1061,24 @@ approveABtn.addEventListener('click', async () => {
     if (!currentProvider) return;
     const web3 = new Web3(currentProvider);
     const accounts = await web3.eth.getAccounts();
-    const amountA = parseFloat(poolAmountAInput.value) || 0;
+    const amountA = parseFloat(poolAmountAInput.value);
     const amountAWei = web3.utils.toWei(amountA.toString(), 'ether');
 
     try {
         approveABtn.textContent = `Approving ${poolTokenA.name}...`;
         approveABtn.disabled = true;
         const tokenAContract = new web3.eth.Contract(erc20Abi, poolTokenA.address);
-        await tokenAContract.methods.approve(swapContractAddress, amountAWei).send({ from: accounts[0] });
+        const tx = await tokenAContract.methods.approve(swapContractAddress, amountAWei).send({ from: accounts[0] });
         await new Promise(resolve => setTimeout(resolve, 2000));
+        showSuccessModal(`Approved ${poolTokenA.name} successfully!`, tx.transactionHash);
         await updateLiquidityButtonState();
     } catch (error) {
         console.error('Approve A error:', error);
-        alert(`Failed to approve ${poolTokenA.name}! ${error.message}`);
+        let errorMsg = `Failed to approve ${poolTokenA.name}!`;
+        if (error.message.includes('reverted')) {
+            errorMsg += ' Transaction reverted by the EVM.';
+        }
+        showErrorModal(errorMsg, error.transactionHash || null);
         approveABtn.textContent = `Approve ${poolTokenA.name}`;
         approveABtn.disabled = false;
     }
@@ -1036,19 +1089,24 @@ approveBBtn.addEventListener('click', async () => {
     if (!currentProvider) return;
     const web3 = new Web3(currentProvider);
     const accounts = await web3.eth.getAccounts();
-    const amountB = parseFloat(poolAmountBInput.value) || 0;
+    const amountB = parseFloat(poolAmountBInput.value);
     const amountBWei = web3.utils.toWei(amountB.toString(), 'ether');
 
     try {
         approveBBtn.textContent = `Approving ${poolTokenB.name}...`;
         approveBBtn.disabled = true;
         const tokenBContract = new web3.eth.Contract(erc20Abi, poolTokenB.address);
-        await tokenBContract.methods.approve(swapContractAddress, amountBWei).send({ from: accounts[0] });
+        const tx = await tokenBContract.methods.approve(swapContractAddress, amountBWei).send({ from: accounts[0] });
         await new Promise(resolve => setTimeout(resolve, 2000));
+        showSuccessModal(`Approved ${poolTokenB.name} successfully!`, tx.transactionHash);
         await updateLiquidityButtonState();
     } catch (error) {
         console.error('Approve B error:', error);
-        alert(`Failed to approve ${poolTokenB.name}! ${error.message}`);
+        let errorMsg = `Failed to approve ${poolTokenB.name}!`;
+        if (error.message.includes('reverted')) {
+            errorMsg += ' Transaction reverted by the EVM.';
+        }
+        showErrorModal(errorMsg, error.transactionHash || null);
         approveBBtn.textContent = `Approve ${poolTokenB.name}`;
         approveBBtn.disabled = false;
     }
@@ -1061,30 +1119,29 @@ addLiquidityBtn.addEventListener('click', async () => {
         overlay.style.display = 'block';
         return;
     }
-    if (!currentProvider) {
-        alert('Please connect your wallet to Tea Sepolia first!');
-        return;
-    }
-    const amountA = parseFloat(poolAmountAInput.value) || 0;
-    const amountB = parseFloat(poolAmountBInput.value) || 0;
-    if (amountA <= 0 || amountB <= 0) {
-        alert('Please enter valid amounts!');
-        return;
-    }
+    if (!currentProvider) return;
 
     const web3 = new Web3(currentProvider);
     const accounts = await web3.eth.getAccounts();
     const swapContract = new web3.eth.Contract(swapContractAbi, swapContractAddress);
 
+    const amountA = parseFloat(poolAmountAInput.value);
+    const amountB = parseFloat(poolAmountBInput.value);
     const amountAWei = web3.utils.toWei(amountA.toString(), 'ether');
     const amountBWei = web3.utils.toWei(amountB.toString(), 'ether');
-    const amountAMin = web3.utils.toWei((amountA * 0.95).toString(), 'ether');
-    const amountBMin = web3.utils.toWei((amountB * 0.95).toString(), 'ether');
+    const slippageFactor = 1 - (slippageTolerance / 100);
+    const amountAMin = BigInt(Math.floor(amountAWei * slippageFactor));
+    const amountBMin = BigInt(Math.floor(amountBWei * slippageFactor));
 
     try {
         addLiquidityBtn.textContent = 'Adding Liquidity...';
         addLiquidityBtn.disabled = true;
 
+        const txOptions = poolTokenA.address === '0x0000000000000000000000000000000000000000'
+            ? { from: accounts[0], value: amountAWei, gas: 500000 }
+            : poolTokenB.address === '0x0000000000000000000000000000000000000000'
+            ? { from: accounts[0], value: amountBWei, gas: 500000 }
+            : { from: accounts[0], gas: 500000 };
         const tx = await swapContract.methods.addLiquidity(
             poolTokenA.address,
             poolTokenB.address,
@@ -1092,11 +1149,7 @@ addLiquidityBtn.addEventListener('click', async () => {
             amountBWei,
             amountAMin,
             amountBMin
-        ).send({
-            from: accounts[0],
-            value: poolTokenA.address === '0x0000000000000000000000000000000000000000' ? amountAWei : poolTokenB.address === '0x0000000000000000000000000000000000000000' ? amountBWei : 0,
-            gas: 500000
-        });
+        ).send(txOptions);
 
         showSuccessModal(`Added ${amountA} ${poolTokenA.name} + ${amountB} ${poolTokenB.name} liquidity!`, tx.transactionHash);
         addToSwapHistory('add', amountA, poolTokenA.name, amountB, poolTokenB.name, tx.transactionHash);
@@ -1106,7 +1159,13 @@ addLiquidityBtn.addEventListener('click', async () => {
         await updateLiquidityList();
     } catch (error) {
         console.error('Add liquidity error:', error);
-        alert(`Failed to add liquidity! ${error.message}`);
+        let errorMsg = 'Failed to add liquidity!';
+        if (error.message.includes('reverted')) {
+            errorMsg += ' Transaction reverted by the EVM. Check token balances or allowances.';
+        } else if (error.message.includes('insufficient funds')) {
+            errorMsg += ' Insufficient funds for gas or tokens.';
+        }
+        showErrorModal(errorMsg, error.transactionHash || null);
     } finally {
         addLiquidityBtn.textContent = 'Add Liquidity';
         addLiquidityBtn.disabled = false;
@@ -1115,190 +1174,189 @@ addLiquidityBtn.addEventListener('click', async () => {
 
 // Update Liquidity List
 const updateLiquidityList = async () => {
-    if (!currentProvider) return;
+    if (!currentProvider) {
+        liquidityList.innerHTML = '<p>Connect wallet to see your liquidity.</p>';
+        removeLiquidityBtn.disabled = true;
+        return;
+    }
     const web3 = new Web3(currentProvider);
     const accounts = await web3.eth.getAccounts();
-    if (!accounts || accounts.length === 0) return;
-
     const swapContract = new web3.eth.Contract(swapContractAbi, swapContractAddress);
-    liquidityList.innerHTML = '';
 
-    const pairs = [
+    liquidityList.innerHTML = '';
+    const tokenPairs = [
         { tokenA: '0x0000000000000000000000000000000000000000', tokenB: '0xadc8988012410F9ED43f840E6499b74C1Cf94870', nameA: 'TEA', nameB: 'ETH' },
         { tokenA: '0x0000000000000000000000000000000000000000', tokenB: '0x581711F99DaFf0db829B77b9c20b85C697d79b5E', nameA: 'TEA', nameB: 'USDT' },
         { tokenA: '0xadc8988012410F9ED43f840E6499b74C1Cf94870', tokenB: '0x581711F99DaFf0db829B77b9c20b85C697d79b5E', nameA: 'ETH', nameB: 'USDT' }
     ];
 
-    for (const pair of pairs) {
+    let hasLiquidity = false;
+    for (const pair of tokenPairs) {
         const lpBalance = await swapContract.methods.lpBalances(pair.tokenA, pair.tokenB, accounts[0]).call();
         if (lpBalance > 0) {
+            const totalSupply = await swapContract.methods.totalSupply(pair.tokenA, pair.tokenB).call();
             const reserveA = await swapContract.methods.reserves(pair.tokenA, pair.tokenB).call();
             const reserveB = await swapContract.methods.reserves(pair.tokenB, pair.tokenA).call();
-            const totalSupply = await swapContract.methods.totalSupply(pair.tokenA, pair.tokenB).call();
+
+            const share = (lpBalance / totalSupply) * 100;
             const amountA = (lpBalance * reserveA) / totalSupply;
             const amountB = (lpBalance * reserveB) / totalSupply;
-            liquidityList.innerHTML += `
-                <div class="liquidity-item" data-token-a="${pair.tokenA}" data-token-b="${pair.tokenB}" data-lp="${lpBalance}">
-                    <span>${pair.nameA}/${pair.nameB}</span>
-                    <span>${(amountA / 1e18).toFixed(4)} ${pair.nameA} + ${(amountB / 1e18).toFixed(4)} ${pair.nameB}</span>
-                </div>
+
+            const amountAFormatted = web3.utils.fromWei(amountA.toString(), 'ether');
+            const amountBFormatted = web3.utils.fromWei(amountB.toString(), 'ether');
+
+            const li = document.createElement('div');
+            li.className = 'liquidity-item';
+            li.innerHTML = `
+                <span>${pair.nameA}/${pair.nameB}: ${parseFloat(amountAFormatted).toFixed(4)} ${pair.nameA} + ${parseFloat(amountBFormatted).toFixed(4)} ${pair.nameB}</span>
+                <span>${share.toFixed(2)}%</span>
             `;
+            li.dataset.tokenA = pair.tokenA;
+            li.dataset.tokenB = pair.tokenB;
+            li.dataset.lpAmount = lpBalance;
+            li.addEventListener('click', () => {
+                document.querySelectorAll('.liquidity-item').forEach(item => item.classList.remove('selected'));
+                li.classList.add('selected');
+                removeLiquidityBtn.disabled = false;
+            });
+            liquidityList.appendChild(li);
+            hasLiquidity = true;
         }
     }
-    liquidityList.querySelectorAll('.liquidity-item').forEach(item => {
-        item.addEventListener('click', () => {
-            liquidityList.querySelectorAll('.liquidity-item').forEach(i => i.classList.remove('selected'));
-            item.classList.add('selected');
-            removeLiquidityBtn.disabled = false;
-        });
-    });
+
+    if (!hasLiquidity) {
+        liquidityList.innerHTML = '<p>No liquidity provided yet.</p>';
+        removeLiquidityBtn.disabled = true;
+    }
 };
 
 // Remove Liquidity
 removeLiquidityBtn.addEventListener('click', async () => {
-    if (!currentProvider) {
-        alert('Please connect your wallet to Tea Sepolia first!');
-        return;
-    }
-    const selected = liquidityList.querySelector('.liquidity-item.selected');
-    if (!selected) {
-        alert('Please select a liquidity position!');
-        return;
-    }
-
-    const tokenA = selected.dataset.tokenA;
-    const tokenB = selected.dataset.tokenB;
-    const lpAmount = selected.dataset.lp;
-
+    if (!currentProvider) return;
     const web3 = new Web3(currentProvider);
     const accounts = await web3.eth.getAccounts();
     const swapContract = new web3.eth.Contract(swapContractAbi, swapContractAddress);
+
+    const selectedItem = document.querySelector('.liquidity-item.selected');
+    if (!selectedItem) {
+        alert('Please select a liquidity position to remove!');
+        return;
+    }
+
+    const tokenA = selectedItem.dataset.tokenA;
+    const tokenB = selectedItem.dataset.tokenB;
+    const lpAmount = selectedItem.dataset.lpAmount;
+    const slippageFactor = 1 - (slippageTolerance / 100);
+
+    const reserveA = await swapContract.methods.reserves(tokenA, tokenB).call();
+    const reserveB = await swapContract.methods.reserves(tokenB, tokenA).call();
+    const totalSupply = await swapContract.methods.totalSupply(tokenA, tokenB).call();
+
+    const amountA = (lpAmount * reserveA) / totalSupply;
+    const amountB = (lpAmount * reserveB) / totalSupply;
+    const amountAMin = BigInt(Math.floor(Number(amountA) * slippageFactor));
+    const amountBMin = BigInt(Math.floor(Number(amountB) * slippageFactor));
 
     try {
         const tx = await swapContract.methods.removeLiquidity(
             tokenA,
             tokenB,
             lpAmount,
-            0,
-            0
-        ).send({
-            from: accounts[0],
-            gas: 500000
-        });
+            amountAMin,
+            amountBMin
+        ).send({ from: accounts[0], gas: 500000 });
 
-        const reserveA = await swapContract.methods.reserves(tokenA, tokenB).call();
-        const reserveB = await swapContract.methods.reserves(tokenB, tokenA).call();
-        const totalSupply = await swapContract.methods.totalSupply(tokenA, tokenB).call();
-        const amountA = (lpAmount * reserveA) / totalSupply;
-        const amountB = (lpAmount * reserveB) / totalSupply;
         const amountAFormatted = web3.utils.fromWei(amountA.toString(), 'ether');
         const amountBFormatted = web3.utils.fromWei(amountB.toString(), 'ether');
 
-        showSuccessModal('Liquidity removed successfully!', tx.transactionHash);
+        showSuccessModal(`Removed ${amountAFormatted} ${poolTokenA.name} + ${amountBFormatted} ${poolTokenB.name} liquidity!`, tx.transactionHash);
         addToSwapHistory('remove', amountAFormatted, poolTokenA.name, amountBFormatted, poolTokenB.name, tx.transactionHash);
         await updateLiquidityList();
         await updatePoolBalancesAndInfo();
         removeLiquidityBtn.disabled = true;
     } catch (error) {
         console.error('Remove liquidity error:', error);
-        alert(`Failed to remove liquidity! ${error.message}`);
+        let errorMsg = 'Failed to remove liquidity!';
+        if (error.message.includes('reverted')) {
+            errorMsg += ' Transaction reverted by the EVM.';
+        }
+        showErrorModal(errorMsg, error.transactionHash || null);
     }
 });
 
-// Swap History Functions
+// Swap History
 const addToSwapHistory = (type, amountA, tokenA, amountB, tokenB, txHash) => {
-    let entry;
-    if (type === 'swap') {
-        entry = {
-            type: 'swap',
-            fromAmount: amountA,
-            fromToken: tokenA,
-            toAmount: amountB,
-            toToken: tokenB,
-            txHash,
-            timestamp: new Date().toISOString()
-        };
-    } else if (type === 'add') {
-        entry = {
-            type: 'add',
-            amountA,
-            tokenA,
-            amountB,
-            tokenB,
-            txHash,
-            timestamp: new Date().toISOString()
-        };
-    } else if (type === 'remove') {
-        entry = {
-            type: 'remove',
-            amountA,
-            tokenA,
-            amountB,
-            tokenB,
-            txHash,
-            timestamp: new Date().toISOString()
-        };
-    }
-    swapHistory.unshift(entry);
-    if (swapHistory.length > 50) swapHistory.pop();
+    const historyItem = {
+        type,
+        amountA: parseFloat(amountA).toFixed(4),
+        tokenA,
+        amountB: parseFloat(amountB).toFixed(4),
+        tokenB,
+        txHash,
+        timestamp: new Date().toISOString()
+    };
+    swapHistory.unshift(historyItem);
     localStorage.setItem('swapHistory', JSON.stringify(swapHistory));
     renderSwapHistory();
 };
 
 const renderSwapHistory = () => {
-    swapHistoryList.innerHTML = '';
-    if (swapHistory.length === 0) {
-        swapHistoryList.innerHTML = '<p>No history yet.</p>';
+    swapHistoryList.innerHTML = swapHistory.map(item => `
+        <div class="history-item">
+            <span>${item.type === 'swap' ? `Swapped ${item.amountA} ${item.tokenA} to ${item.amountB} ${item.tokenB}` : 
+                    item.type === 'add' ? `Added ${item.amountA} ${item.tokenA} + ${item.amountB} ${item.tokenB}` : 
+                    `Removed ${item.amountA} ${item.tokenA} + ${item.amountB} ${item.tokenB}`}</span>
+            <a href="https://sepolia.tea.xyz/tx/${item.txHash}" target="_blank">Tx</a>
+        </div>
+    `).join('') || '<p>No swap history yet.</p>';
+};
+
+// Faucet Claim
+faucetBtn.addEventListener('click', async () => {
+    if (!currentProvider) {
+        alert('Please connect your wallet first!');
         return;
     }
-    swapHistory.forEach(entry => {
-        const date = new Date(entry.timestamp).toLocaleString();
-        let text;
-        if (entry.type === 'swap') {
-            text = `${entry.fromAmount} ${entry.fromToken} → ${entry.toAmount} ${entry.toToken}`;
-        } else if (entry.type === 'add') {
-            text = `Added ${entry.amountA} ${entry.tokenA} + ${entry.amountB} ${entry.tokenB} LP`;
-        } else if (entry.type === 'remove') {
-            text = `Removed ${entry.amountA} ${entry.tokenA} + ${entry.amountB} ${entry.tokenB} LP`;
+    const web3 = new Web3(currentProvider);
+    const accounts = await web3.eth.getAccounts();
+    const faucetContract = new web3.eth.Contract(faucetAbi, faucetContractAddress);
+
+    try {
+        faucetBtn.textContent = 'Claiming...';
+        faucetBtn.disabled = true;
+        const tx = await faucetContract.methods.claim().send({ from: accounts[0], gas: 200000 });
+        showSuccessModal('Claimed 10 ETH and 10 USDT!', tx.transactionHash);
+        await updateFromBalance();
+        await updatePoolBalancesAndInfo();
+    } catch (error) {
+        console.error('Faucet error:', error);
+        let errorMsg = 'Faucet failed!';
+        if (error.message.includes('reverted')) {
+            errorMsg += ' Might be due to cooldown or insufficient faucet balance.';
         }
-        swapHistoryList.innerHTML += `
-            <div class="history-item">
-                <span>${text}</span>
-                <a href="https://sepolia.tea.xyz/tx/${entry.txHash}" target="_blank">View</a>
-            </div>
-        `;
-    });
-};
-
-// Success Modal
-const showSuccessModal = (message, txHash) => {
-    successMessage.textContent = message;
-    txLink.href = `https://sepolia.tea.xyz/tx/${txHash}`;
-    successModal.classList.add('active');
-    overlay.style.display = 'block';
-};
-
-closeModal.addEventListener('click', () => {
-    successModal.classList.remove('active');
-    overlay.style.display = 'none';
+        showErrorModal(errorMsg, error.transactionHash || null);
+    } finally {
+        faucetBtn.textContent = 'Get Faucet';
+        faucetBtn.disabled = false;
+    }
 });
 
-overlay.addEventListener('click', () => {
-    connectWalletModal.style.display = 'none';
-    assetModal.style.display = 'none';
-    tokenSelectModal.style.display = 'none';
-    successModal.classList.remove('active');
-    slippagePopup.style.display = 'none';
-    overlay.style.display = 'none';
+// Toggle Swap Info Details
+swapInfoToggle.addEventListener('click', () => {
+    swapInfoDetails.classList.toggle('active');
+    swapInfoToggle.classList.toggle('active');
+    const chevron = swapInfoToggle.querySelector('.chevron');
+    chevron.textContent = swapInfoDetails.classList.contains('active') ? '▲' : '▼';
 });
 
-// Inisialisasi
+// Initialize
 document.addEventListener('DOMContentLoaded', () => {
     if (!document.body.classList.contains('dark-mode') && !document.body.classList.contains('light-mode')) {
         document.body.classList.add('dark-mode');
     }
     updateChainStatus();
-    updateSwapButtonState();
-    updateLiquidityButtonState();
+    updateFromBalance();
+    updatePoolBalancesAndInfo();
+    updateLiquidityList();
     renderSwapHistory();
 });
