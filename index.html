@@ -3,39 +3,66 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>CreamySwap</title>
+  <title>CreamySwap - Decentralized Token Swap</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="assets/css/landing.css" />
 </head>
 <body>
   <nav class="navbar">
     <div class="nav-left">
-      <img src="assets/images/logo.png" alt="Logo" class="logo-img" />
+      <img src="assets/images/logo.png" alt="CreamySwap Logo" class="logo-img" />
       <span class="logo-text">CreamySwap</span>
     </div>
     <div class="nav-right">
-      <span class="nav-item">Decentralized Swap</span>
+      <a href="/swap" class="nav-item">Launch App</a>
     </div>
   </nav>
 
-  <div class="main-content">
+  <section class="hero">
     <div class="hero-container">
       <div class="hero-box">
-        <h1 class="title">CreamySwap</h1>
+        <h1 class="title">Swap Tokens with Ease</h1>
         <p class="description">
-          Decentralized Token Swap on TEA Network with smooth & creamy UI.<br />
-          Start swapping your favorite tokens easily.
+          Decentralized token swapping on TEA Network with a smooth & creamy UI.<br />
+          Start swapping your favorite tokens today.
         </p>
-        <a href="https://creamyswap.vercel.app/swap" class="launch-button">Launch App</a>
+        <a href="/swap" class="launch-button">Launch App</a>
       </div>
       <div class="hero-img">
-        <img src="assets/images/illustration.png" alt="Swap Illustration" />
+        <img src="assets/images/swap.png" alt="Swap Illustration" />
       </div>
     </div>
-  </div>
-  
+  </section>
+
+  <section class="features">
+    <h2>Why CreamySwap?</h2>
+    <div class="feature-list">
+      <div class="feature">
+        <img src="assets/images/low-cost.png" alt="Low Fees" />
+        <h3>Low Fees</h3>
+        <p>Only 0.3% per swap.</p>
+      </div>
+      <div class="feature">
+        <img src="assets/images/lightning.png" alt="Fast" /> <!-- Ganti gas.png jadi lightning.png -->
+        <h3>Fast Transactions</h3>
+        <p>Powered by Tea Sepolia.</p>
+      </div>
+      <div class="feature">
+        <img src="assets/images/secure.png" alt="Secure" />
+        <h3>Secure</h3>
+        <p>Trusted and audited contracts.</p>
+      </div>
+    </div>
+  </section>
 
   <footer class="footer">
-    © 2025 CreamySwap. All rights reserved.
+    <p>© 2025 CreamySwap. Built with <span class="heart">♥</span> by Robynasuro.</p>
+    <div class="socials">
+      <a href="https://github.com/robynasuro" target="_blank">GitHub</a>
+      <a href="https://twitter.com/0xcreamy" target="_blank">Twitter</a>
+    </div>
   </footer>
+
+  <script src="assets/js/app.js" defer></script>
 </body>
 </html>
