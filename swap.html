@@ -29,7 +29,8 @@
                     <button class="slippage-btn" data-slippage="3">3%</button>
                 </div>
                 <div class="slippage-custom">
-                    <input type="number" placeholder="Custom %" step="0.1">
+                    <input type="text" id="custom-slippage-input" placeholder="Custom (%)">
+                    <button id="set-custom-slippage">Set</button>
                 </div>
             </div>
             <label class="switch">
@@ -116,61 +117,61 @@
         </div>
 
         <!-- Liquidity Pools Tab -->
-<div id="pool" class="tab-content">
-    <div class="swap-box">
-        <h2>Add Liquidity</h2>
-        <div class="swap-input-box">
-            <label>Input</label>
-            <div class="input-wrapper">
-                <input type="number" id="pool-amount-a" placeholder="0.0" step="0.01">
-                <button id="pool-token-a-btn" class="token-select-btn">
-                    <img src="/assets/img/eth.png" alt="ETH" class="token-img"> ETH
-                </button>
-            </div>
-            <div class="balance-info pool-a-balance-info">
-                <span>Balance: </span><span id="pool-a-balance">0.0</span>
-            </div>
-        </div>
-        <div class="plus-sign">+</div>
-        <div class="swap-input-box">
-            <label>Input</label>
-            <div class="input-wrapper">
-                <input type="number" id="pool-amount-b" placeholder="0.0" step="0.01">
-                <button id="pool-token-b-btn" class="token-select-btn">
-                    <img src="/assets/img/usdt.png" alt="USDT" class="token-img"> USDT
-                </button>
-            </div>
-            <div class="balance-info pool-b-balance-info">
-                <span>Balance: </span><span id="pool-b-balance">0.0</span>
-            </div>
-        </div>
-        
-        <!-- Prices and Pool Share -->
-        <div class="pool-info" id="pool-info">
-            <h3>Prices and Pool Share</h3>
-            <div class="pool-info-item">
-                <span id="price-a-per-b">0</span>
-                <span id="label-a-per-b">ETH per USDT</span>
-            </div>
-            <div class="pool-info-item">
-                <span id="price-b-per-a">0</span>
-                <span id="label-b-per-a">USDT per ETH</span>
-            </div>
-            <div class="pool-info-item">
-                <span id="pool-share">0%</span>
-                <span>Share of Pool</span>
-            </div>
-        </div>
+        <div id="pool" class="tab-content">
+            <div class="swap-box">
+                <h2>Add Liquidity</h2>
+                <div class="swap-input-box">
+                    <label>Input</label>
+                    <div class="input-wrapper">
+                        <input type="number" id="pool-amount-a" placeholder="0.0" step="0.01">
+                        <button id="pool-token-a-btn" class="token-select-btn">
+                            <img src="/assets/img/eth.png" alt="ETH" class="token-img"> ETH
+                        </button>
+                    </div>
+                    <div class="balance-info pool-a-balance-info">
+                        <span>Balance: </span><span id="pool-a-balance">0.0</span>
+                    </div>
+                </div>
+                <div class="plus-sign">+</div>
+                <div class="swap-input-box">
+                    <label>Input</label>
+                    <div class="input-wrapper">
+                        <input type="number" id="pool-amount-b" placeholder="0.0" step="0.01">
+                        <button id="pool-token-b-btn" class="token-select-btn">
+                            <img src="/assets/img/usdt.png" alt="USDT" class="token-img"> USDT
+                        </button>
+                    </div>
+                    <div class="balance-info pool-b-balance-info">
+                        <span>Balance: </span><span id="pool-b-balance">0.0</span>
+                    </div>
+                </div>
+                
+                <!-- Prices and Pool Share -->
+                <div class="pool-info" id="pool-info">
+                    <h3>Prices and Pool Share</h3>
+                    <div class="pool-info-item">
+                        <span id="price-a-per-b">0</span>
+                        <span id="label-a-per-b">ETH per USDT</span>
+                    </div>
+                    <div class="pool-info-item">
+                        <span id="price-b-per-a">0</span>
+                        <span id="label-b-per-a">USDT per ETH</span>
+                    </div>
+                    <div class="pool-info-item">
+                        <span id="pool-share">0%</span>
+                        <span>Share of Pool</span>
+                    </div>
+                </div>
 
-        <button id="approve-a-btn" style="display: none;" disabled>Approve ETH</button>
-        <button id="approve-b-btn" style="display: none;" disabled>Approve USDT</button>
-        <button id="add-liquidity-btn" disabled>Connect Wallet</button>
+                <button id="approve-a-btn" style="display: none;" disabled>Approve ETH</button>
+                <button id="approve-b-btn" style="display: none;" disabled>Approve USDT</button>
+                <button id="add-liquidity-btn" disabled>Connect Wallet</button>
 
-        <h2>Your Liquidity</h2>
-        <div id="liquidity-list"></div>
-        <button id="remove-liquidity-btn" disabled>Remove Liquidity</button>
-    </div>
-</div>
+                <h2>Your Liquidity</h2>
+                <div id="liquidity-list"></div>
+                <button id="remove-liquidity-btn" disabled>Remove Liquidity</button>
+            </div>
+        </div>
 
         <!-- History Tab -->
         <div id="history" class="tab-content">
@@ -217,6 +218,16 @@
             <h2>Success!</h2>
             <p id="success-message">Transaction completed.</p>
             <a id="tx-link" href="#" target="_blank" class="tx-link">View on Explorer</a>
+        </div>
+    </div>
+
+    <!-- Error Modal -->
+    <div id="error-modal" class="modal">
+        <div class="modal-content">
+            <span id="close-error-modal" class="close">×</span>
+            <h2>Transaction Failed</h2>
+            <p id="error-message">Something went wrong.</p>
+            <a id="error-tx-link" href="#" target="_blank" class="tx-link">View on Explorer</a>
         </div>
     </div>
 
