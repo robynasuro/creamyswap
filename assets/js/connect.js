@@ -802,8 +802,14 @@ connectWalletBtn.addEventListener('click', () => {
 walletOptions.forEach(option => {
     option.addEventListener('click', async () => {
         const wallet = option.getAttribute('data-wallet');
-        walletType = wallet;
+        if (currentProvider && walletType === wallet) {
+            // Kalo udah connect ke wallet yang sama, skip proses baru
+            connectWalletModal.style.display = 'none';
+            overlay.style.display = 'none';
+            return;
+        }
 
+        walletType = wallet;
         connectWalletModal.style.display = 'none';
         overlay.style.display = 'none';
 
@@ -812,36 +818,31 @@ walletOptions.forEach(option => {
         const ensureTeaSepolia = async (provider) => {
             try {
                 const chainId = await provider.request({ method: 'eth_chainId' });
-                if (chainId !== TEA_SEPOLIA_CHAIN_ID) {
-                    await provider.request({
-                        method: 'wallet_switchEthereumChain',
-                        params: [{ chainId: TEA_SEPOLIA_CHAIN_ID }],
-                    }).catch(async (switchError) => {
-                        if (switchError.code === 4902) {
-                            await provider.request({
-                                method: 'wallet_addEthereumChain',
-                                params: [{
-                                    chainId: TEA_SEPOLIA_CHAIN_ID,
-                                    chainName: 'Tea Sepolia',
-                                    rpcUrls: ['https://rpc.teatest.live'],
-                                    nativeCurrency: {
-                                        name: 'TEA',
-                                        symbol: 'TEA',
-                                        decimals: 18
-                                    },
-                                    blockExplorerUrls: ['https://sepolia.tea.xyz']
-                                }]
-                            });
-                        } else {
-                            throw switchError;
-                        }
-                    });
-                }
+                if (chainId === TEA_SEPOLIA_CHAIN_ID) return true; // Skip kalo udah di Tea Sepolia
+
+                await provider.request({
+                    method: 'wallet_switchEthereumChain',
+                    params: [{ chainId: TEA_SEPOLIA_CHAIN_ID }],
+                }).catch(async (switchError) => {
+                    if (switchError.code === 4902) {
+                        await provider.request({
+                            method: 'wallet_addEthereumChain',
+                            params: [{
+                                chainId: TEA_SEPOLIA_CHAIN_ID,
+                                chainName: 'Tea Sepolia',
+                                rpcUrls: ['https://rpc.teatest.live'],
+                                nativeCurrency: { name: 'TEA', symbol: 'TEA', decimals: 18 },
+                                blockExplorerUrls: ['https://sepolia.tea.xyz']
+                            }]
+                        });
+                    } else {
+                        throw switchError;
+                    }
+                });
                 return true;
             } catch (error) {
-                console.error('Failed to switch to Tea Sepolia:', error);
-                alert('Please switch to Tea Sepolia manually in your wallet.');
-                return false;
+                console.error('Failed to ensure Tea Sepolia:', error);
+                return false; // Jangan popup langsung, kasih ke caller buat handle
             }
         };
 
@@ -855,10 +856,17 @@ walletOptions.forEach(option => {
                     await updateFromBalance();
                     await updatePoolBalancesAndInfo();
                     await updateLiquidityList();
+                } else {
+                    showErrorModal('Failed to switch to Tea Sepolia. Please switch manually.');
                 }
             } catch (error) {
                 console.error('MetaMask connection error:', error);
-                showErrorModal('Failed to connect MetaMask!');
+                if (error.code === 4001) { // User rejected request
+                    showErrorModal('Connection rejected by user.');
+                } else {
+                    showErrorModal('Failed to connect MetaMask. Check your wallet.');
+                }
+                currentProvider = null; // Reset kalo gagal
             }
         } else if (wallet === 'okx' && window.okxwallet) {
             currentProvider = window.okxwallet;
@@ -870,10 +878,17 @@ walletOptions.forEach(option => {
                     await updateFromBalance();
                     await updatePoolBalancesAndInfo();
                     await updateLiquidityList();
+                } else {
+                    showErrorModal('Failed to switch to Tea Sepolia. Please switch manually.');
                 }
             } catch (error) {
                 console.error('OKX Wallet connection error:', error);
-                showErrorModal('Failed to connect OKX Wallet!');
+                if (error.code === 4001) {
+                    showErrorModal('Connection rejected by user.');
+                } else {
+                    showErrorModal('Failed to connect OKX Wallet. Check your wallet.');
+                }
+                currentProvider = null;
             }
         } else {
             alert(`Please install ${wallet === 'metamask' ? 'MetaMask' : 'OKX Wallet'} to use this wallet!`);
@@ -1184,43 +1199,49 @@ const updateLiquidityList = async () => {
     const swapContract = new web3.eth.Contract(swapContractAbi, swapContractAddress);
 
     liquidityList.innerHTML = '';
-    const tokenPairs = [
-        { tokenA: '0x0000000000000000000000000000000000000000', tokenB: '0xadc8988012410F9ED43f840E6499b74C1Cf94870', nameA: 'TEA', nameB: 'ETH' },
-        { tokenA: '0x0000000000000000000000000000000000000000', tokenB: '0x581711F99DaFf0db829B77b9c20b85C697d79b5E', nameA: 'TEA', nameB: 'USDT' },
-        { tokenA: '0xadc8988012410F9ED43f840E6499b74C1Cf94870', tokenB: '0x581711F99DaFf0db829B77b9c20b85C697d79b5E', nameA: 'ETH', nameB: 'USDT' }
+    // Daftar token yang mungkin ada di liquidity (default + custom)
+    const knownTokens = [
+        { address: '0x0000000000000000000000000000000000000000', name: 'TEA' },
+        { address: '0xadc8988012410F9ED43f840E6499b74C1Cf94870', name: 'ETH' },
+        { address: '0x581711F99DaFf0db829B77b9c20b85C697d79b5E', name: 'USDT' }
+        // Custom token bakal ditambah otomatis via addCustomTokenBtn
     ];
 
     let hasLiquidity = false;
-    for (const pair of tokenPairs) {
-        const lpBalance = await swapContract.methods.lpBalances(pair.tokenA, pair.tokenB, accounts[0]).call();
-        if (lpBalance > 0) {
-            const totalSupply = await swapContract.methods.totalSupply(pair.tokenA, pair.tokenB).call();
-            const reserveA = await swapContract.methods.reserves(pair.tokenA, pair.tokenB).call();
-            const reserveB = await swapContract.methods.reserves(pair.tokenB, pair.tokenA).call();
+    for (let i = 0; i < knownTokens.length; i++) {
+        for (let j = i + 1; j < knownTokens.length; j++) {
+            const tokenA = knownTokens[i].address;
+            const tokenB = knownTokens[j].address;
+            const lpBalance = await swapContract.methods.lpBalances(accounts[0], tokenA, tokenB).call().catch(() => '0');
+            if (BigInt(lpBalance) > 0n) {
+                const totalSupply = await swapContract.methods.totalSupply(tokenA, tokenB).call();
+                const reserveA = await swapContract.methods.reserves(tokenA, tokenB).call();
+                const reserveB = await swapContract.methods.reserves(tokenB, tokenA).call();
 
-            const share = (lpBalance / totalSupply) * 100;
-            const amountA = (lpBalance * reserveA) / totalSupply;
-            const amountB = (lpBalance * reserveB) / totalSupply;
+                const share = (Number(lpBalance) / Number(totalSupply)) * 100;
+                const amountA = (BigInt(lpBalance) * BigInt(reserveA)) / BigInt(totalSupply);
+                const amountB = (BigInt(lpBalance) * BigInt(reserveB)) / BigInt(totalSupply);
 
-            const amountAFormatted = web3.utils.fromWei(amountA.toString(), 'ether');
-            const amountBFormatted = web3.utils.fromWei(amountB.toString(), 'ether');
+                const amountAFormatted = web3.utils.fromWei(amountA.toString(), 'ether');
+                const amountBFormatted = web3.utils.fromWei(amountB.toString(), 'ether');
 
-            const li = document.createElement('div');
-            li.className = 'liquidity-item';
-            li.innerHTML = `
-                <span>${pair.nameA}/${pair.nameB}: ${parseFloat(amountAFormatted).toFixed(4)} ${pair.nameA} + ${parseFloat(amountBFormatted).toFixed(4)} ${pair.nameB}</span>
-                <span>${share.toFixed(2)}%</span>
-            `;
-            li.dataset.tokenA = pair.tokenA;
-            li.dataset.tokenB = pair.tokenB;
-            li.dataset.lpAmount = lpBalance;
-            li.addEventListener('click', () => {
-                document.querySelectorAll('.liquidity-item').forEach(item => item.classList.remove('selected'));
-                li.classList.add('selected');
-                removeLiquidityBtn.disabled = false;
-            });
-            liquidityList.appendChild(li);
-            hasLiquidity = true;
+                const li = document.createElement('div');
+                li.className = 'liquidity-item';
+                li.innerHTML = `
+                    <span>${knownTokens[i].name}/${knownTokens[j].name}: ${parseFloat(amountAFormatted).toFixed(4)} ${knownTokens[i].name} + ${parseFloat(amountBFormatted).toFixed(4)} ${knownTokens[j].name}</span>
+                    <span>${share.toFixed(2)}%</span>
+                `;
+                li.dataset.tokenA = tokenA;
+                li.dataset.tokenB = tokenB;
+                li.dataset.lpAmount = lpBalance;
+                li.addEventListener('click', () => {
+                    document.querySelectorAll('.liquidity-item').forEach(item => item.classList.remove('selected'));
+                    li.classList.add('selected');
+                    removeLiquidityBtn.disabled = false;
+                });
+                liquidityList.appendChild(li);
+                hasLiquidity = true;
+            }
         }
     }
 
@@ -1229,6 +1250,42 @@ const updateLiquidityList = async () => {
         removeLiquidityBtn.disabled = true;
     }
 };
+
+// Update addCustomTokenBtn biar nambah ke knownTokens
+addCustomTokenBtn.addEventListener('click', async () => {
+    if (!currentProvider) {
+        alert('Please connect your wallet first!');
+        return;
+    }
+    const tokenAddress = customTokenAddressInput.value.trim();
+    if (!Web3.utils.isAddress(tokenAddress)) {
+        alert('Please enter a valid token contract address!');
+        return;
+    }
+
+    const web3 = new Web3(currentProvider);
+    const contract = new web3.eth.Contract(erc20Abi, tokenAddress);
+    try {
+        const symbol = await contract.methods.symbol().call();
+        // Tambah ke knownTokens kalo belum ada
+        if (!knownTokens.some(t => t.address.toLowerCase() === tokenAddress.toLowerCase())) {
+            knownTokens.push({ address: tokenAddress, name: symbol });
+        }
+        const tokenOption = document.createElement('div');
+        tokenOption.className = 'token-option';
+        tokenOption.setAttribute('data-token', symbol);
+        tokenOption.setAttribute('data-address', tokenAddress);
+        tokenOption.innerHTML = `<img src="/assets/img/default-token.png" alt="${symbol}"> ${symbol}`;
+        tokenList.appendChild(tokenOption);
+        tokenOption.addEventListener('click', () => selectToken(tokenOption));
+        customTokenAddressInput.value = '';
+        alert(`${symbol} added successfully!`);
+        await updateLiquidityList(); // Refresh liquidity list setelah nambah token
+    } catch (error) {
+        console.error('Error adding custom token:', error);
+        alert('Failed to add token!');
+    }
+});
 
 // Remove Liquidity
 removeLiquidityBtn.addEventListener('click', async () => {
