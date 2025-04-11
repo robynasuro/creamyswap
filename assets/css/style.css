@@ -193,7 +193,7 @@ body.light-mode .settings-btn {
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
   z-index: 1000;
   width: 200px;
-  margin-bottom: 30px; /* Dari 20px jadi 30px biar lebih jauh dari tabs/swap */
+  margin-bottom: 30px;
 }
 
 body.light-mode .slippage-popup {
@@ -264,6 +264,12 @@ body.light-mode .slippage-btn {
   border-color: #ff2d55;
 }
 
+.slippage-custom {
+  display: flex;
+  gap: 6px;
+  margin-top: 10px;
+}
+
 .slippage-custom input {
   width: 70%;
   padding: 6px;
@@ -272,12 +278,35 @@ body.light-mode .slippage-btn {
   font-size: 12px;
   background: #333;
   color: #fff;
+  -moz-appearance: textfield;
+  appearance: none;
+}
+
+.slippage-custom input::-webkit-inner-spin-button,
+.slippage-custom input::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
 }
 
 body.light-mode .slippage-custom input {
   background: #fff;
   color: #333;
   border-color: #ccc;
+}
+
+#set-custom-slippage {
+  padding: 6px 12px;
+  background: #ff2d55;
+  border: none;
+  border-radius: 5px;
+  color: #fff;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+#set-custom-slippage:hover {
+  background: #e0284c;
 }
 
 /* Tabs */
@@ -716,25 +745,13 @@ body.light-mode .wallet-option:hover {
   margin-right: 10px;
 }
 
-/* Success Modal */
-#success-modal {
+/* Success/Error Modal */
+.modal {
   display: none;
   position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: rgba(0, 0, 0, 0.6);
-  z-index: 1001;
-  justify-content: center;
-  align-items: center;
-}
-
-#success-modal.active {
-  display: flex;
-}
-
-.modal-content {
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
   background: #252a2e;
   padding: 15px;
   border-radius: 8px;
@@ -742,15 +759,26 @@ body.light-mode .wallet-option:hover {
   max-width: 320px;
   text-align: center;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  z-index: 1001;
 }
 
-body.light-mode .modal-content {
+body.light-mode .modal {
   background: #ffffff;
+}
+
+.modal.active {
+  display: block;
+}
+
+.modal-content {
+  position: relative;
 }
 
 .close {
   color: #999;
-  float: right;
+  position: absolute;
+  top: 5px;
+  right: 10px;
   font-size: 20px;
   font-weight: bold;
   cursor: pointer;
@@ -768,6 +796,14 @@ body.light-mode .close {
   color: #ff2d55;
   margin: 0 0 8px;
   font-size: 16px;
+}
+
+.modal-content h2.error {
+  color: #666;
+}
+
+body.light-mode .modal-content h2.error {
+  color: #999;
 }
 
 .modal-content p {
