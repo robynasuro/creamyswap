@@ -1473,7 +1473,7 @@ const updateLiquidityList = async () => {
         return;
     }
 
-    console.log(`Wallet Address: ${accounts[0]}`); // Debugging wallet address
+    console.log(`Wallet Address: ${accounts[0]}`);
     liquidityList.innerHTML = '<p>Loading liquidity...</p>';
     const swapContract = new web3.eth.Contract(swapContractAbi, swapContractAddress);
     const pairs = generateTokenPairs();
@@ -1483,23 +1483,24 @@ const updateLiquidityList = async () => {
 
     for (const pair of pairs) {
         try {
-            // Urutkan tokenA dan tokenB
+            console.log(`Checking pair: ${pair.tokenA.name}/${pair.tokenB.name}`);
             const sortedTokenA = pair.tokenA.address < pair.tokenB.address ? pair.tokenA.address : pair.tokenB.address;
             const sortedTokenB = pair.tokenA.address < pair.tokenB.address ? pair.tokenB.address : pair.tokenA.address;
             const tokenA = pair.tokenA.address < pair.tokenB.address ? pair.tokenA : pair.tokenB;
             const tokenB = pair.tokenA.address < pair.tokenB.address ? pair.tokenB : pair.tokenA;
 
-            // Ambil alamat LP token
+            console.log(`Sorted tokens: ${tokenA.name} (${sortedTokenA}) / ${tokenB.name} (${sortedTokenB})`);
             const lpTokenAddress = await swapContract.methods.lpTokens(sortedTokenA, sortedTokenB).call();
+            console.log(`LP Token Address for ${tokenA.name}/${tokenB.name}: ${lpTokenAddress}`);
+
             if (lpTokenAddress === TEA_ADDRESS) {
-                console.log(`No LP token for pair ${tokenA.name}/${tokenB.name}`); // Debugging
-                continue; // Skip kalau pair belum ada
+                console.log(`No LP token for pair ${tokenA.name}/${tokenB.name}`);
+                continue;
             }
 
-            // Ambil balance LP token user
             const lpTokenContract = new web3.eth.Contract(lpTokenAbi, lpTokenAddress);
             const lpBalance = await lpTokenContract.methods.balanceOf(accounts[0]).call();
-            console.log(`LP Balance for ${tokenA.name}/${tokenB.name}: ${lpBalance}`); // Debugging
+            console.log(`LP Balance for ${tokenA.name}/${tokenB.name}: ${lpBalance}`);
 
             if (lpBalance > 0) {
                 const totalSupply = await lpTokenContract.methods.totalSupply().call();
@@ -1507,18 +1508,30 @@ const updateLiquidityList = async () => {
                 const reserveA = tokenA.address < tokenB.address ? reserves.reserveA : reserves.reserveB;
                 const reserveB = tokenA.address < tokenB.address ? reserves.reserveB : reserves.reserveA;
 
-                const share = (Number(lpBalance) / Number(totalSupply)) * 100;
-                const amountA = (Number(lpBalance) * Number(reserveA)) / Number(totalSupply);
-                const amountB = (Number(lpBalance) * Number(reserveB)) / Number(totalSupply);
+                // Convert ke BN.js
+                const lpBalanceBN = web3.utils.toBN(lpBalance);
+                const totalSupplyBN = web3.utils.toBN(totalSupply);
+                const reserveABN = web3.utils.toBN(reserveA);
+                const reserveBBN = web3.utils.toBN(reserveB);
 
-                console.log(`Found liquidity for ${tokenA.name}/${tokenB.name}: ${amountA} / ${amountB}, Share: ${share}%`); // Debugging
+                // Hitung amountA dan amountB pake BN.js
+                const amountABN = lpBalanceBN.mul(reserveABN).div(totalSupplyBN);
+                const amountBBN = lpBalanceBN.mul(reserveBBN).div(totalSupplyBN);
+
+                // Hitung share pake BN.js, convert ke persen
+                const shareBN = lpBalanceBN.mul(web3.utils.toBN(10000)).div(totalSupplyBN); // Kali 10000 biar dapet 2 desimal
+                const share = Number(shareBN) / 100; // Convert ke desimal buat display
+
+                console.log(`Found liquidity for ${tokenA.name}/${tokenB.name}: ${amountABN.toString()} / ${amountBBN.toString()}, Share: ${share}%`);
 
                 liquidityList.innerHTML += `
                     <div class="liquidity-item" data-token-a="${tokenA.address}" data-token-b="${tokenB.address}" data-lp="${lpBalance}">
-                        <span>${tokenA.name}/${tokenB.name}: ${web3.utils.fromWei(amountA.toString(), 'ether')} / ${web3.utils.fromWei(amountB.toString(), 'ether')}</span>
+                        <span>${tokenA.name}/${tokenB.name}: ${web3.utils.fromWei(amountABN, 'ether')} / ${web3.utils.fromWei(amountBBN, 'ether')}</span>
                         <span>${share.toFixed(2)}%</span>
                     </div>`;
                 hasLiquidity = true;
+            } else {
+                console.log(`No liquidity balance for ${tokenA.name}/${tokenB.name}`);
             }
         } catch (error) {
             console.error(`Failed to fetch liquidity for pair ${pair.tokenA.name}/${pair.tokenB.name}:`, error);
@@ -1668,7 +1681,7 @@ faucetBtn.addEventListener('click', async () => {
             gas: gasLimit,
             gasPrice: gasPrice
         });
-        showSuccessModal('Successfully claimed tokens from faucet!', tx.transactionHash);
+showSuccessModal('Successfully claimed tokens from faucet!', tx.transactionHash);
         await updateFromBalance();
         await updatePoolBalancesAndInfo();
         await updateLiquidityList();
